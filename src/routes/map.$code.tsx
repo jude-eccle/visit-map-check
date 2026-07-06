@@ -369,33 +369,27 @@ function MapPage() {
               className="relative w-full h-full flex items-center justify-center"
               onClick={handleImageTap}
             >
-              {imageUrl ? (
-                <img
-                  ref={imgRef}
-                  src={imageUrl}
-                  alt={map.name}
-                  className="max-w-full max-h-full object-contain select-none pointer-events-none"
-                  draggable={false}
-                />
-              ) : (
-                <div
-                  ref={imgRef as any}
-                  className="w-full max-w-2xl aspect-[4/3] bg-white border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm p-6 text-center"
-                >
-                  지도 이미지가 아직 업로드되지 않았어요.
-                  <br />
-                  탭하여 위치는 계속 기록할 수 있어요.
-                </div>
-              )}
-              {/* 핀 오버레이 */}
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div
-                  className="relative"
-                  style={{
-                    width: imgRef.current?.getBoundingClientRect().width || "100%",
-                    height: imgRef.current?.getBoundingClientRect().height || "100%",
-                  }}
-                >
+              <div className="relative inline-block max-w-full max-h-full">
+                {imageUrl ? (
+                  <img
+                    ref={imgRef}
+                    src={imageUrl}
+                    alt={map.name}
+                    className="block max-w-full max-h-full object-contain select-none pointer-events-none"
+                    draggable={false}
+                  />
+                ) : (
+                  <div
+                    ref={imgRef as any}
+                    className="w-[80vw] max-w-2xl aspect-[4/3] bg-white border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm p-6 text-center"
+                  >
+                    지도 이미지가 아직 업로드되지 않았어요.
+                    <br />
+                    탭하여 위치는 계속 기록할 수 있어요.
+                  </div>
+                )}
+                {/* 핀 오버레이 — 이미지와 같은 부모 안, 동일한 좌표계 */}
+                <div className="absolute inset-0 pointer-events-none">
                   {pins.map((p) => (
                     <button
                       key={p.id}

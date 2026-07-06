@@ -406,6 +406,19 @@ function MapPage() {
                       className="absolute"
                       style={{ left: `${p.x_pct}%`, top: `${p.y_pct}%` }}
                     >
+                      <div
+                        aria-hidden
+                        className="absolute rounded-full bg-black"
+                        style={{
+                          width: 4,
+                          height: 4,
+                          left: -2,
+                          top: -2,
+                          opacity: 0.5,
+                          pointerEvents: "none",
+                        }}
+                      />
+
                       <button
                         type="button"
                         onClick={(e) => {

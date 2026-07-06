@@ -406,6 +406,9 @@ function MapPage() {
                       className="absolute"
                       style={{ left: `${p.x_pct}%`, top: `${p.y_pct}%` }}
                     >
+
+
+
                       <button
                         type="button"
                         onClick={(e) => {
@@ -418,13 +421,14 @@ function MapPage() {
                         }}
                         className="block pointer-events-auto p-0 m-0 border-0 bg-transparent leading-none"
                         style={{
-                          transform: `scale(${1 / scale}) translate(-50%, -100%)`,
+                          transform: `scale(${1 / scale}) translate(-50%, -91.25%)`,
                           transformOrigin: "0 0",
                         }}
                         aria-label={STATUS_META[p.status].label}
                       >
-                        <Pin status={p.status} size={22} outline />
+                        <Pin status={p.status} size={22} />
                       </button>
+
                     </div>
                   ))}
                 </div>

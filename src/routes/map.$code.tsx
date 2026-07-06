@@ -196,10 +196,22 @@ function MapPage() {
     const pos = pendingPos;
     setPendingPos(null);
 
+    // 임시 id와 실제 서버 id를 모두 추적 — 되돌리기가 어느 시점에 눌려도 정확한 핀을 삭제
+    let currentId = tempId;
     let undone = false;
-    const undo = () => {
+    const undo = async () => {
+      if (undone) return;
       undone = true;
-      setPins((prev) => prev.filter((p) => p.id !== tempId));
+      const idToRemove = currentId;
+      setPins((prev) => prev.filter((p) => p.id !== idToRemove));
+      if (!idToRemove.startsWith("tmp-")) {
+        try {
+          const { error } = await supabase.from("pins").delete().eq("id", idToRemove);
+          if (error) throw error;
+        } catch {
+          await enqueue({ kind: "delete", id: idToRemove });
+        }
+      }
     };
 
     toast(`${STATUS_META[status].label} 저장됨`, {
@@ -207,7 +219,6 @@ function MapPage() {
       action: { label: "되돌리기", onClick: undo },
     });
 
-    // 저장 시도
     const trySave = async (attempt = 0): Promise<void> => {
       if (undone) return;
       try {
@@ -224,17 +235,16 @@ function MapPage() {
           .single();
         if (error) throw error;
         if (undone) {
-          // 되돌렸으면 서버에서도 삭제
           await supabase.from("pins").delete().eq("id", data.id);
           return;
         }
+        currentId = data.id;
         setPins((prev) => prev.map((p) => (p.id === tempId ? (data as PinRow) : p)));
       } catch (e) {
         if (attempt < 2 && navigator.onLine) {
           setTimeout(() => trySave(attempt + 1), 800);
           return;
         }
-        // 오프라인 큐로
         await enqueue({
           kind: "insert",
           tempId,

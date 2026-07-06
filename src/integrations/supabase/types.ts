@@ -21,6 +21,7 @@ export type Database = {
           id: string
           image_path: string | null
           name: string
+          team_memo: string
           total_houses: number
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           name: string
+          team_memo?: string
           total_houses?: number
         }
         Update: {
@@ -37,6 +39,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           name?: string
+          team_memo?: string
           total_houses?: number
         }
         Relationships: []

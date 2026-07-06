@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { verifyAdminToken } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard } from "lucide-react";
 import { getMapImageUrl } from "@/lib/map-image";
 
 export const Route = createFileRoute("/admin")({
@@ -26,6 +27,7 @@ type MapRow = {
   name: string;
   image_path: string | null;
   total_houses: number;
+  team_memo: string;
 };
 
 const TOKEN_KEY = "admin-token-v1";
@@ -139,6 +141,33 @@ function AdminPage() {
     refresh();
   }
 
+  async function updateName(m: MapRow, v: string) {
+    const name = v.trim();
+    if (!name || name === m.name) return;
+    await supabase.from("maps").update({ name }).eq("id", m.id);
+    refresh();
+  }
+
+  async function updateCode(m: MapRow, v: string) {
+    const code = v.trim();
+    if (code === m.code) return;
+    if (!/^\d{4}$/.test(code)) return toast.error("코드는 4자리 숫자입니다.");
+    const { error } = await supabase.from("maps").update({ code }).eq("id", m.id);
+    if (error) {
+      if (error.code === "23505") toast.error("이미 사용 중인 코드입니다.");
+      else toast.error("변경 실패");
+      refresh();
+      return;
+    }
+    toast.success("코드가 변경되었어요.");
+    refresh();
+  }
+
+  async function updateMemo(m: MapRow, v: string) {
+    if (v === m.team_memo) return;
+    await supabase.from("maps").update({ team_memo: v } as never).eq("id", m.id);
+  }
+
   async function deleteMap(m: MapRow) {
     setConfirmDel(null);
     if (m.image_path) {
@@ -214,6 +243,11 @@ function AdminPage() {
               지도 추가, 이미지 업로드, 코드/가구수 관리
             </p>
           </div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/leader">
+              <LayoutDashboard className="w-4 h-4 mr-1" /> 팀장 대시보드
+            </Link>
+          </Button>
           <Button onClick={() => setCreating(true)}>
             <Plus className="w-4 h-4 mr-1" /> 새 지도
           </Button>
@@ -240,12 +274,30 @@ function AdminPage() {
                 )}
               </div>
               <div className="flex-1 min-w-0 space-y-2">
-                <div>
-                  <h2 className="font-semibold text-base truncate">{m.name}</h2>
-                  <div className="text-xs text-muted-foreground">코드 {m.code}</div>
+                <div className="grid grid-cols-[1fr,90px] gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">지도 이름</Label>
+                    <Input
+                      defaultValue={m.name}
+                      onBlur={(e) => updateName(m, e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">코드</Label>
+                    <Input
+                      inputMode="numeric"
+                      maxLength={4}
+                      defaultValue={m.code}
+                      onBlur={(e) =>
+                        updateCode(m, e.target.value.replace(/\D/g, "").slice(0, 4))
+                      }
+                      className="h-8 text-sm font-mono"
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs">가구수</Label>
+                  <Label className="text-xs whitespace-nowrap">예상 가구수</Label>
                   <Input
                     type="number"
                     defaultValue={m.total_houses}
@@ -257,6 +309,15 @@ function AdminPage() {
                   />
                 </div>
               </div>
+            </div>
+            <div className="px-4 pb-3 space-y-1">
+              <Label className="text-xs">담당 조 메모 (예: 1팀 A조, 1팀 B조)</Label>
+              <Textarea
+                defaultValue={m.team_memo}
+                onBlur={(e) => updateMemo(m, e.target.value)}
+                placeholder="이 코드를 쓰는 조 이름을 적어두세요. 개인정보는 넣지 마세요."
+                className="min-h-[60px] text-sm"
+              />
             </div>
             <div className="border-t px-3 py-2 flex flex-wrap gap-2 bg-muted/40">
               <label className="inline-flex">

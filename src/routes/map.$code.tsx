@@ -401,28 +401,31 @@ function MapPage() {
                 {/* 핀 오버레이 — 이미지와 같은 부모 안, 동일한 좌표계 */}
                 <div className="absolute inset-0 pointer-events-none">
                   {pins.map((p) => (
-                    <button
+                    <div
                       key={p.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (wasDraggingRef.current) {
-                          wasDraggingRef.current = false;
-                          return;
-                        }
-                        setSelectedPin(p);
-                      }}
-                      className="absolute pointer-events-auto"
-                      style={{
-                        left: `${p.x_pct}%`,
-                        top: `${p.y_pct}%`,
-                        transform: `translate(-50%, -100%) scale(${1 / scale})`,
-                        transformOrigin: "bottom center",
-                      }}
-                      aria-label={STATUS_META[p.status].label}
+                      className="absolute"
+                      style={{ left: `${p.x_pct}%`, top: `${p.y_pct}%` }}
                     >
-                      <Pin status={p.status} size={22} outline />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (wasDraggingRef.current) {
+                            wasDraggingRef.current = false;
+                            return;
+                          }
+                          setSelectedPin(p);
+                        }}
+                        className="block pointer-events-auto"
+                        style={{
+                          transform: `scale(${1 / scale}) translate(-50%, -100%)`,
+                          transformOrigin: "0 0",
+                        }}
+                        aria-label={STATUS_META[p.status].label}
+                      >
+                        <Pin status={p.status} size={22} outline />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>

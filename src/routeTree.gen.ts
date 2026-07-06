@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LeaderRouteImport } from './routes/leader'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MapCodeRouteImport } from './routes/map.$code'
-import { Route as AdminTokenRouteImport } from './routes/admin.$token'
 
 const LeaderRoute = LeaderRouteImport.update({
   id: '/leader',
@@ -29,43 +28,34 @@ const MapCodeRoute = MapCodeRouteImport.update({
   path: '/map/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminTokenRoute = AdminTokenRouteImport.update({
-  id: '/admin/$token',
-  path: '/admin/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/leader': typeof LeaderRoute
-  '/admin/$token': typeof AdminTokenRoute
   '/map/$code': typeof MapCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/leader': typeof LeaderRoute
-  '/admin/$token': typeof AdminTokenRoute
   '/map/$code': typeof MapCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/leader': typeof LeaderRoute
-  '/admin/$token': typeof AdminTokenRoute
   '/map/$code': typeof MapCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/leader' | '/admin/$token' | '/map/$code'
+  fullPaths: '/' | '/leader' | '/map/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/leader' | '/admin/$token' | '/map/$code'
-  id: '__root__' | '/' | '/leader' | '/admin/$token' | '/map/$code'
+  to: '/' | '/leader' | '/map/$code'
+  id: '__root__' | '/' | '/leader' | '/map/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LeaderRoute: typeof LeaderRoute
-  AdminTokenRoute: typeof AdminTokenRoute
   MapCodeRoute: typeof MapCodeRoute
 }
 
@@ -92,20 +82,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MapCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/$token': {
-      id: '/admin/$token'
-      path: '/admin/$token'
-      fullPath: '/admin/$token'
-      preLoaderRoute: typeof AdminTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LeaderRoute: LeaderRoute,
-  AdminTokenRoute: AdminTokenRoute,
   MapCodeRoute: MapCodeRoute,
 }
 export const routeTree = rootRouteImport

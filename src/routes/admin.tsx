@@ -141,6 +141,33 @@ function AdminPage() {
     refresh();
   }
 
+  async function updateName(m: MapRow, v: string) {
+    const name = v.trim();
+    if (!name || name === m.name) return;
+    await supabase.from("maps").update({ name }).eq("id", m.id);
+    refresh();
+  }
+
+  async function updateCode(m: MapRow, v: string) {
+    const code = v.trim();
+    if (code === m.code) return;
+    if (!/^\d{4}$/.test(code)) return toast.error("코드는 4자리 숫자입니다.");
+    const { error } = await supabase.from("maps").update({ code }).eq("id", m.id);
+    if (error) {
+      if (error.code === "23505") toast.error("이미 사용 중인 코드입니다.");
+      else toast.error("변경 실패");
+      refresh();
+      return;
+    }
+    toast.success("코드가 변경되었어요.");
+    refresh();
+  }
+
+  async function updateMemo(m: MapRow, v: string) {
+    if (v === m.team_memo) return;
+    await supabase.from("maps").update({ team_memo: v } as never).eq("id", m.id);
+  }
+
   async function deleteMap(m: MapRow) {
     setConfirmDel(null);
     if (m.image_path) {

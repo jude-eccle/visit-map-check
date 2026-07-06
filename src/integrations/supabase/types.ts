@@ -14,7 +14,103 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      maps: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          image_path: string | null
+          name: string
+          total_houses: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          name: string
+          total_houses?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          name?: string
+          total_houses?: number
+        }
+        Relationships: []
+      }
+      pins: {
+        Row: {
+          created_at: string
+          id: string
+          map_id: string
+          status: Database["public"]["Enums"]["pin_status"]
+          team_name: string
+          x_pct: number
+          y_pct: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          map_id: string
+          status: Database["public"]["Enums"]["pin_status"]
+          team_name: string
+          x_pct: number
+          y_pct: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          map_id?: string
+          status?: Database["public"]["Enums"]["pin_status"]
+          team_name?: string
+          x_pct?: number
+          y_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pins_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_requests: {
+        Row: {
+          created_at: string
+          id: string
+          map_id: string
+          resolved: boolean
+          team_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          map_id: string
+          resolved?: boolean
+          team_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          map_id?: string
+          resolved?: boolean
+          team_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_requests_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +119,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      pin_status: "done" | "gift" | "refuse" | "away" | "skip"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +246,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      pin_status: ["done", "gift", "refuse", "away", "skip"],
+    },
   },
 } as const

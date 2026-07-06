@@ -84,6 +84,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "국내전도팀 가정 방문 실시간 체크 앱" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "전도팀 방문체크" },
+      { name: "twitter:description", content: "국내전도팀 가정 방문 실시간 체크 앱" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d0c13b84-96c7-4326-ad93-07814b56e003/id-preview-733d9f6e--c8972886-cd21-4767-aac7-fa87d59feecd.lovable.app-1783306800267.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d0c13b84-96c7-4326-ad93-07814b56e003/id-preview-733d9f6e--c8972886-cd21-4767-aac7-fa87d59feecd.lovable.app-1783306800267.png" },
     ],
     links: [
       {

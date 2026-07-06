@@ -243,6 +243,11 @@ function AdminPage() {
               지도 추가, 이미지 업로드, 코드/가구수 관리
             </p>
           </div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/leader">
+              <LayoutDashboard className="w-4 h-4 mr-1" /> 팀장 대시보드
+            </Link>
+          </Button>
           <Button onClick={() => setCreating(true)}>
             <Plus className="w-4 h-4 mr-1" /> 새 지도
           </Button>
@@ -254,6 +259,66 @@ function AdminPage() {
 
       <main className="max-w-3xl mx-auto p-4 space-y-3">
         {maps.length === 0 && (
+          <p className="text-center text-muted-foreground py-12">
+            아직 지도가 없어요. "새 지도"로 추가하세요.
+          </p>
+        )}
+        {maps.map((m) => (
+          <div key={m.id} className="bg-card border rounded-xl overflow-hidden">
+            <div className="flex gap-3 p-4">
+              <div className="w-24 h-24 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                {previews[m.id] ? (
+                  <img src={previews[m.id]!} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="grid grid-cols-[1fr,90px] gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">지도 이름</Label>
+                    <Input
+                      defaultValue={m.name}
+                      onBlur={(e) => updateName(m, e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">코드</Label>
+                    <Input
+                      inputMode="numeric"
+                      maxLength={4}
+                      defaultValue={m.code}
+                      onBlur={(e) =>
+                        updateCode(m, e.target.value.replace(/\D/g, "").slice(0, 4))
+                      }
+                      className="h-8 text-sm font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">예상 가구수</Label>
+                  <Input
+                    type="number"
+                    defaultValue={m.total_houses}
+                    onBlur={(e) => {
+                      if (parseInt(e.target.value) !== m.total_houses)
+                        updateHouses(m, e.target.value);
+                    }}
+                    className="h-8 w-20 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-4 pb-3 space-y-1">
+              <Label className="text-xs">담당 조 메모 (예: 1팀 A조, 1팀 B조)</Label>
+              <Textarea
+                defaultValue={m.team_memo}
+                onBlur={(e) => updateMemo(m, e.target.value)}
+                placeholder="이 코드를 쓰는 조 이름을 적어두세요. 개인정보는 넣지 마세요."
+                className="min-h-[60px] text-sm"
+              />
+            </div>
           <p className="text-center text-muted-foreground py-12">
             아직 지도가 없어요. "새 지도"로 추가하세요.
           </p>

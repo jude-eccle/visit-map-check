@@ -27,6 +27,7 @@ type MapRow = {
   name: string;
   image_path: string | null;
   total_houses: number;
+  team_memo: string;
 };
 
 const TOKEN_KEY = "admin-token-v1";

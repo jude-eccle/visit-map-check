@@ -319,39 +319,6 @@ function AdminPage() {
                 className="min-h-[60px] text-sm"
               />
             </div>
-          <p className="text-center text-muted-foreground py-12">
-            아직 지도가 없어요. "새 지도"로 추가하세요.
-          </p>
-        )}
-        {maps.map((m) => (
-          <div key={m.id} className="bg-card border rounded-xl overflow-hidden">
-            <div className="flex gap-3 p-4">
-              <div className="w-24 h-24 flex-shrink-0 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-                {previews[m.id] ? (
-                  <img src={previews[m.id]!} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0 space-y-2">
-                <div>
-                  <h2 className="font-semibold text-base truncate">{m.name}</h2>
-                  <div className="text-xs text-muted-foreground">코드 {m.code}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs">가구수</Label>
-                  <Input
-                    type="number"
-                    defaultValue={m.total_houses}
-                    onBlur={(e) => {
-                      if (parseInt(e.target.value) !== m.total_houses)
-                        updateHouses(m, e.target.value);
-                    }}
-                    className="h-8 w-20 text-sm"
-                  />
-                </div>
-              </div>
-            </div>
             <div className="border-t px-3 py-2 flex flex-wrap gap-2 bg-muted/40">
               <label className="inline-flex">
                 <input

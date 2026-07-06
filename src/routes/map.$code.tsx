@@ -358,7 +358,7 @@ function MapPage() {
           initialScale={1}
           doubleClick={{ disabled: true }}
           onTransform={(ref) => setScale(ref.state.scale)}
-          onPanningStart={() => (wasDraggingRef.current = true)}
+          onPanning={() => (wasDraggingRef.current = true)}
           panning={{ velocityDisabled: true }}
         >
           <TransformComponent

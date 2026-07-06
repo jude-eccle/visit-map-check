@@ -416,7 +416,7 @@ function MapPage() {
                           }
                           setSelectedPin(p);
                         }}
-                        className="block pointer-events-auto"
+                        className="block pointer-events-auto p-0 m-0 border-0 bg-transparent leading-none"
                         style={{
                           transform: `scale(${1 / scale}) translate(-50%, -100%)`,
                           transformOrigin: "0 0",

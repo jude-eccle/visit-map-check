@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -96,7 +96,7 @@ function Index() {
           </Button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-2">
           <a
             href="/leader"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
@@ -104,6 +104,14 @@ function Index() {
             <ShieldCheck className="w-4 h-4" />
             팀장 화면 — 전체 진행 현황 보기
           </a>
+          <div>
+            <Link
+              to="/admin"
+              className="text-xs text-muted-foreground/50 hover:text-muted-foreground underline underline-offset-4"
+            >
+              관리자 화면
+            </Link>
+          </div>
         </div>
       </div>
     </div>

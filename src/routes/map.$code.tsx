@@ -198,12 +198,17 @@ function MapPage() {
       return;
     }
     const stats = zoneStats.get(z.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
-    await supabase.from("zone_completions").insert({
-      zone_id: z.id,
-      map_id: z.map_id,
-      team_name: teamName,
-      counters: { total: stats.total, ...stats.by },
-    });
+    await supabase.from("zone_completions").upsert(
+      {
+        zone_id: z.id,
+        map_id: z.map_id,
+        team_name: teamName,
+        counters: { total: stats.total, ...stats.by },
+        acknowledged: false,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "zone_id,team_name" },
+    );
     toast.success(`${z.name} 완료 — 팀장에게 알림 전송`);
   }
 

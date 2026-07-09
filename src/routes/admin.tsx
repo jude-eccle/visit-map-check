@@ -148,12 +148,8 @@ function AdminPage() {
     refresh();
   }
 
-  async function updateHouses(m: MapRow, v: string) {
-    const n = parseInt(v, 10);
-    if (!Number.isFinite(n) || n < 0) return;
-    await supabase.from("maps").update({ total_houses: n }).eq("id", m.id);
-    refresh();
-  }
+
+
 
   async function updateName(m: MapRow, v: string) {
     const name = v.trim();

@@ -343,6 +343,15 @@ function AdminPage() {
               </div>
             </div>
             <div className="px-4 pb-3 space-y-1">
+              <Label className="text-xs">지역 주소 (팀원에게 안내됨)</Label>
+              <Input
+                defaultValue={m.address}
+                onBlur={(e) => updateAddress(m, e.target.value)}
+                placeholder="예: 강원 삼척시 근덕면 궁촌리 123-4"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="px-4 pb-3 space-y-1">
               <Label className="text-xs">담당 조 메모 (예: 1팀 A조, 1팀 B조)</Label>
               <Textarea
                 defaultValue={m.team_memo}

@@ -49,12 +49,14 @@ function LeaderDashboard() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [supports, setSupports] = useState<SupportRow[]>([]);
   const [completions, setCompletions] = useState<CompletionRow[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
 
   async function refresh() {
-    const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }] =
+    const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }] =
       await Promise.all([
-        supabase.from("maps").select("id, code, name").order("code"),
+        supabase.from("maps").select("id, code, name, address").order("code"),
         supabase.from("zones").select("id, map_id, name, status"),
         supabase.from("zone_events").select("id, map_id, zone_id, category"),
         supabase
@@ -67,12 +69,18 @@ function LeaderDashboard() {
           .select("*")
           .eq("acknowledged", false)
           .order("created_at", { ascending: false }),
+        supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from("assignments" as any)
+          .select("*")
+          .eq("acknowledged", false),
       ]);
     setMaps((m ?? []) as MapRow[]);
     setZones((z ?? []) as ZoneRow[]);
     setEvents((e ?? []) as EventRow[]);
     setSupports((s ?? []) as SupportRow[]);
     setCompletions((c ?? []) as CompletionRow[]);
+    setAssignments((a ?? []) as AssignmentRow[]);
     setLoading(false);
   }
 
@@ -84,6 +92,7 @@ function LeaderDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "zone_events" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "zone_completions" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "support_requests" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "maps" }, () => refresh())
       .subscribe();
     return () => {

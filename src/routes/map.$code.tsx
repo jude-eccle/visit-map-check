@@ -189,10 +189,14 @@ function MapPage() {
       wasDraggingRef.current = false;
       return;
     }
-    const next = NEXT_STATUS[z.status];
-    // Optimistic
+    if (z.status === "done") {
+      setConfirmRevertZone(z);
+      return;
+    }
+    const next: ZoneStatus = z.status === "unvisited" ? "in_progress" : "unvisited";
     setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: next } : x)));
     if (next === "in_progress") setSelectedZoneId(z.id);
+    else if (selectedZoneId === z.id) setSelectedZoneId(null);
 
     const { error } = await supabase.from("zones").update({ status: next }).eq("id", z.id);
     if (error) {
@@ -200,20 +204,38 @@ function MapPage() {
       setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: z.status } : x)));
       return;
     }
+    if (next === "in_progress") toast(`${z.name} 방문중`);
+  }
 
-    if (next === "done") {
-      const stats = zoneStats.get(z.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
-      await supabase.from("zone_completions").insert({
-        zone_id: z.id,
-        map_id: z.map_id,
-        team_name: teamName,
-        counters: { total: stats.total, ...stats.by },
-      });
-      toast.success(`${z.name} 완료 — 팀장에게 알림 전송`);
-    } else if (next === "in_progress") {
-      toast(`${z.name} 방문중`);
+  async function completeZone(z: ZoneRow) {
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
+    const { error } = await supabase.from("zones").update({ status: "done" }).eq("id", z.id);
+    if (error) {
+      toast.error("완료 처리 실패");
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: z.status } : x)));
+      return;
+    }
+    const stats = zoneStats.get(z.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
+    await supabase.from("zone_completions").insert({
+      zone_id: z.id,
+      map_id: z.map_id,
+      team_name: teamName,
+      counters: { total: stats.total, ...stats.by },
+    });
+    toast.success(`${z.name} 완료 — 팀장에게 알림 전송`);
+  }
+
+  async function revertZoneToInProgress(z: ZoneRow) {
+    setConfirmRevertZone(null);
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "in_progress" } : x)));
+    setSelectedZoneId(z.id);
+    const { error } = await supabase.from("zones").update({ status: "in_progress" }).eq("id", z.id);
+    if (error) {
+      toast.error("되돌리기 실패");
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
     }
   }
+
 
   async function addEvent(cat: Category) {
     if (!selectedZone || !map) return;

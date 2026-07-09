@@ -6,23 +6,30 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   CATEGORY_META,
   CATEGORY_ORDER,
-  NEXT_STATUS,
   ZONE_STATUS_META,
   type Category,
   type ZoneStatus,
 } from "@/lib/zones";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Plus,
   Minus,
   Maximize,
-  HandHelping,
+  Phone,
   ArrowLeft,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getMapImageUrl } from "@/lib/map-image";
+
 
 export const Route = createFileRoute("/map/$code")({
   component: MapPage,

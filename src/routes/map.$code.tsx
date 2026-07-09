@@ -220,7 +220,13 @@ function MapPage() {
     if (error) {
       toast.error("되돌리기 실패");
       setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
+      return;
     }
+    await supabase
+      .from("zone_completions")
+      .delete()
+      .eq("zone_id", z.id)
+      .eq("team_name", teamName);
   }
 
   async function addEvent(cat: Category) {

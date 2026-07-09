@@ -163,6 +163,35 @@ function LeaderDashboard() {
     refresh();
   }
 
+  const mapById = useMemo(() => {
+    const m = new Map<string, MapRow>();
+    for (const x of maps) m.set(x.id, x);
+    return m;
+  }, [maps]);
+
+  const pendingByTeam = useMemo(() => {
+    const m = new Map<string, AssignmentRow>();
+    for (const a of assignments) {
+      const prev = m.get(a.team_name);
+      if (!prev || new Date(a.assigned_at) > new Date(prev.assigned_at)) m.set(a.team_name, a);
+    }
+    return m;
+  }, [assignments]);
+
+  async function assignMap(team: string, mapId: string) {
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("assignments" as any)
+      .insert({ team_name: team, map_id: mapId } as never);
+    if (error) {
+      toast.error("배정 실패");
+      return;
+    }
+    setAssignFor(null);
+    toast.success(`${team} → ${mapById.get(mapId)?.name} 배정 완료`);
+    refresh();
+  }
+
   return (
     <div className="min-h-screen">
       <header className="bg-card border-b sticky top-0 z-10">

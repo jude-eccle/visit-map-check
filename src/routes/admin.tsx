@@ -334,18 +334,6 @@ function AdminPage() {
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs whitespace-nowrap">예상 가구수</Label>
-                  <Input
-                    type="number"
-                    defaultValue={m.total_houses}
-                    onBlur={(e) => {
-                      if (parseInt(e.target.value) !== m.total_houses)
-                        updateHouses(m, e.target.value);
-                    }}
-                    className="h-8 w-20 text-sm"
-                  />
-                </div>
               </div>
             </div>
             <div className="px-4 pb-3 space-y-1">

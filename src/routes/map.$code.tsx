@@ -19,6 +19,7 @@ import {
 import { Phone, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { getMapImageUrl } from "@/lib/map-image";
+import { getLeaderPhone } from "@/lib/settings.functions";
 
 export const Route = createFileRoute("/map/$code")({
   component: MapPage,

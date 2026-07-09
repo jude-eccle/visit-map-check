@@ -354,6 +354,38 @@ function LeaderDashboard() {
           })
         )}
       </main>
+
+      <Dialog open={!!assignFor} onOpenChange={(o) => !o && setAssignFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {assignFor?.team} 팀에게 다음 지도 배정
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+            {maps.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => assignFor && assignMap(assignFor.team, m.id)}
+                className="w-full text-left border rounded-lg p-3 hover:bg-accent transition"
+              >
+                <div className="font-semibold text-sm">
+                  {m.name} <span className="text-xs font-mono text-muted-foreground">코드 {m.code}</span>
+                </div>
+                {m.address && (
+                  <div className="text-xs text-muted-foreground mt-0.5">📍 {m.address}</div>
+                )}
+              </button>
+            ))}
+            {maps.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                등록된 지도가 없습니다.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

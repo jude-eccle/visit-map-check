@@ -497,6 +497,13 @@ function MapPage() {
                 );
               })}
             </div>
+            <Button
+              onClick={() => completeZone(selectedZone)}
+              className="w-full h-14 text-base font-bold"
+              style={{ backgroundColor: ZONE_STATUS_META.done.color, color: "white" }}
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" /> 이 구역 완료
+            </Button>
           </div>
         ) : (
           <div className="p-3 text-center text-sm text-muted-foreground">
@@ -506,14 +513,63 @@ function MapPage() {
           </div>
         )}
         <div className="border-t p-2 grid grid-cols-2 gap-2">
-          <Button variant="outline" className="h-11 text-sm" onClick={requestSupport}>
-            <HandHelping className="w-4 h-4 mr-1" /> 지원 요청
+          <Button variant="outline" className="h-11 text-sm" onClick={callLeader}>
+            <Phone className="w-4 h-4 mr-1" /> 📞 팀장님께 전화
           </Button>
-          <Button variant="outline" className="h-11 text-sm" onClick={() => navigate({ to: "/" })}>
+          <Button variant="outline" className="h-11 text-sm" onClick={handleLeaveMap}>
             <ArrowLeft className="w-4 h-4 mr-1" /> 다른 지도
           </Button>
         </div>
       </footer>
+
+      <Dialog open={!!confirmRevertZone} onOpenChange={(o) => !o && setConfirmRevertZone(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>완료를 취소할까요?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            "{confirmRevertZone?.name}" 구역을 다시 <b>방문중</b> 상태로 되돌립니다.
+            (이미 전송된 완료 알림은 팀장 대시보드에 남아있을 수 있어요.)
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmRevertZone(null)}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmRevertZone && revertZoneToInProgress(confirmRevertZone)}
+            >
+              완료 취소하고 방문중으로
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>정말 이동할까요?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            아직 완료되지 않은 구역이 있습니다 (
+            {zones.filter((z) => z.status !== "done").length}개). 그래도 이동하시겠습니까?
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmLeave(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmLeave(false);
+                navigate({ to: "/" });
+              }}
+            >
+              이동
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

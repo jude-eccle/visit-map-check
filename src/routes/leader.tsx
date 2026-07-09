@@ -2,7 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2, Send } from "lucide-react";
+import { toast } from "sonner";
 import { CATEGORY_META, CATEGORY_ORDER, type Category } from "@/lib/zones";
 
 export const Route = createFileRoute("/leader")({

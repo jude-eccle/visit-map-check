@@ -236,7 +236,10 @@ function LeaderDashboard() {
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <h2 className="font-semibold text-base truncate">{map.name}</h2>
-                    <div className="text-xs text-muted-foreground">코드 {map.code}</div>
+                    <div className="text-xs text-muted-foreground">
+                      코드 {map.code}
+                      {map.address ? ` · 📍 ${map.address}` : ""}
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold tabular-nums">

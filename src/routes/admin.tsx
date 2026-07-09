@@ -122,7 +122,7 @@ function AdminPage() {
     if (newName.trim().length < 1) return toast.error("지도 이름을 입력해주세요.");
     const { error } = await supabase
       .from("maps")
-      .insert({ code: newCode, name: newName.trim() });
+      .insert({ code: newCode, name: newName.trim(), address: newAddress.trim() } as never);
     if (error) {
       if (error.code === "23505") toast.error("이미 사용 중인 코드입니다.");
       else toast.error("생성 실패, 다시 시도해주세요.");
@@ -131,6 +131,7 @@ function AdminPage() {
     setCreating(false);
     setNewCode("");
     setNewName("");
+    setNewAddress("");
     toast.success("지도가 추가되었어요.");
     refresh();
   }

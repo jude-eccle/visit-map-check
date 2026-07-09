@@ -273,35 +273,53 @@ function LeaderDashboard() {
 
                 {comps.length > 0 && (
                   <div className="pt-2 border-t space-y-2">
-                    {comps.map((c) => (
-                      <div
-                        key={c.id}
-                        className="flex items-start gap-2 bg-status-done/10 rounded-lg p-2.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-status-done flex-shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0 text-sm">
-                          <div className="font-medium">
-                            {zoneNameById.get(c.zone_id) ?? "구역"} 완료 · {c.team_name}
+                    {comps.map((c) => {
+                      const pending = pendingByTeam.get(c.team_name);
+                      const pendingMap = pending ? mapById.get(pending.map_id) : null;
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex items-start gap-2 bg-status-done/10 rounded-lg p-2.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-status-done flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0 text-sm">
+                            <div className="font-medium">
+                              {zoneNameById.get(c.zone_id) ?? "구역"} 완료 · {c.team_name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(c.created_at).toLocaleString("ko-KR", {
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                              {" · "}
+                              시도 {c.counters?.total ?? 0} ·{" "}
+                              {CATEGORY_ORDER.map(
+                                (k) => `${CATEGORY_META[k].short} ${c.counters?.[k] ?? 0}`
+                              ).join(" / ")}
+                            </div>
+                            {pendingMap && (
+                              <div className="text-xs mt-1 text-primary font-medium">
+                                이미 {pendingMap.name}(코드 {pendingMap.code})로 배정됨
+                              </div>
+                            )}
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(c.created_at).toLocaleString("ko-KR", {
-                              month: "2-digit",
-                              day: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                            {" · "}
-                            시도 {c.counters?.total ?? 0} ·{" "}
-                            {CATEGORY_ORDER.map(
-                              (k) => `${CATEGORY_META[k].short} ${c.counters?.[k] ?? 0}`
-                            ).join(" / ")}
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              size="sm"
+                              variant={pendingMap ? "outline" : "default"}
+                              onClick={() => setAssignFor({ team: c.team_name })}
+                            >
+                              <Send className="w-3.5 h-3.5 mr-1" /> 다음 지도 배정
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => ackCompletion(c.id)}>
+                              확인함
+                            </Button>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" onClick={() => ackCompletion(c.id)}>
-                          확인함
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 

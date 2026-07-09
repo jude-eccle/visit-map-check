@@ -288,14 +288,24 @@ function MapPage() {
     setEvents((p) => p.map((e) => (e.id === tempId ? (data as EventRow) : e)));
   }
 
-  async function requestSupport() {
-    if (!map) return;
-    const { error } = await supabase
-      .from("support_requests")
-      .insert({ map_id: map.id, team_name: teamName });
-    if (error) toast.error("지원 요청 실패");
-    else toast.success("지원 요청 전달됨");
+  function callLeader() {
+    const digits = leaderPhone.replace(/[^\d+]/g, "");
+    if (!digits) {
+      toast.error("팀장 전화번호가 아직 등록되지 않았어요. 관리자에게 문의하세요.");
+      return;
+    }
+    window.location.href = `tel:${digits}`;
   }
+
+  function handleLeaveMap() {
+    const incomplete = zones.filter((z) => z.status !== "done").length;
+    if (incomplete > 0) {
+      setConfirmLeave(true);
+      return;
+    }
+    navigate({ to: "/" });
+  }
+
 
   const totalStats = useMemo(() => {
     const by: Record<Category, number> = { done: 0, gift: 0, away: 0, other: 0 };

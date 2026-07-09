@@ -410,6 +410,14 @@ function AdminPage() {
               />
             </div>
             <div className="space-y-1">
+              <Label>지역 주소 (선택)</Label>
+              <Input
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                placeholder="예: 강원 삼척시 근덕면 궁촌리 123-4"
+              />
+            </div>
+            <div className="space-y-1">
               <Label>코드 (4자리 숫자)</Label>
               <Input
                 inputMode="numeric"

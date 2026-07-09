@@ -102,12 +102,9 @@ function AdminPage() {
   async function createMap() {
     if (!/^\d{4}$/.test(newCode)) return toast.error("코드는 4자리 숫자입니다.");
     if (newName.trim().length < 1) return toast.error("지도 이름을 입력해주세요.");
-    const houses = parseInt(newHouses, 10);
-    if (!Number.isFinite(houses) || houses < 0)
-      return toast.error("가구수를 숫자로 입력해주세요.");
     const { error } = await supabase
       .from("maps")
-      .insert({ code: newCode, name: newName.trim(), total_houses: houses });
+      .insert({ code: newCode, name: newName.trim() });
     if (error) {
       if (error.code === "23505") toast.error("이미 사용 중인 코드입니다.");
       else toast.error("생성 실패, 다시 시도해주세요.");
@@ -116,7 +113,6 @@ function AdminPage() {
     setCreating(false);
     setNewCode("");
     setNewName("");
-    setNewHouses("30");
     toast.success("지도가 추가되었어요.");
     refresh();
   }

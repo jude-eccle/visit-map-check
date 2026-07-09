@@ -93,11 +93,27 @@ function AdminPage() {
       })
     );
     setPreviews(p);
+    const { data: s } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "leader_phone")
+      .maybeSingle();
+    setLeaderPhone(s?.value ?? "");
+  }
+
+  async function saveLeaderPhone(v: string) {
+    const val = v.trim();
+    setLeaderPhone(val);
+    await supabase
+      .from("app_settings")
+      .upsert({ key: "leader_phone", value: val }, { onConflict: "key" });
+    toast.success("팀장 전화번호가 저장되었어요.");
   }
 
   useEffect(() => {
     if (token) refresh();
   }, [token]);
+
 
   async function createMap() {
     if (!/^\d{4}$/.test(newCode)) return toast.error("코드는 4자리 숫자입니다.");

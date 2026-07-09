@@ -1,7 +1,5 @@
 import { createFileRoute, useNavigate, notFound } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import type { ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CATEGORY_META,
@@ -18,18 +16,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  Minus,
-  Maximize,
-  Phone,
-  ArrowLeft,
-  Loader2,
-  CheckCircle2,
-} from "lucide-react";
+import { Phone, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { getMapImageUrl } from "@/lib/map-image";
-
 
 export const Route = createFileRoute("/map/$code")({
   component: MapPage,
@@ -74,15 +63,12 @@ function MapPage() {
   const [zones, setZones] = useState<ZoneRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [scale, setScale] = useState(1);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
   const [confirmRevertZone, setConfirmRevertZone] = useState<ZoneRow | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
-  const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
-  const wasDraggingRef = useRef(false);
-
 
   useEffect(() => {
     (async () => {
@@ -159,7 +145,6 @@ function MapPage() {
     };
   }, [map]);
 
-  // Zone stats
   const zoneStats = useMemo(() => {
     const m = new Map<string, { total: number; by: Record<Category, number> }>();
     for (const z of zones) m.set(z.id, { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } });
@@ -172,7 +157,6 @@ function MapPage() {
     return m;
   }, [zones, events]);
 
-  // Auto-select "방문중" zone owned by this team, else first in_progress
   useEffect(() => {
     if (selectedZoneId && zones.some((z) => z.id === selectedZoneId && z.status === "in_progress")) return;
     const first = zones.find((z) => z.status === "in_progress");
@@ -185,10 +169,6 @@ function MapPage() {
     : null;
 
   async function cycleZone(z: ZoneRow) {
-    if (wasDraggingRef.current) {
-      wasDraggingRef.current = false;
-      return;
-    }
     if (z.status === "done") {
       setConfirmRevertZone(z);
       return;
@@ -235,7 +215,6 @@ function MapPage() {
       setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
     }
   }
-
 
   async function addEvent(cat: Category) {
     if (!selectedZone || !map) return;
@@ -306,7 +285,6 @@ function MapPage() {
     navigate({ to: "/" });
   }
 
-
   const totalStats = useMemo(() => {
     const by: Record<Category, number> = { done: 0, gift: 0, away: 0, other: 0 };
     for (const e of events) by[e.category] += 1;
@@ -324,7 +302,7 @@ function MapPage() {
   if (!map) return null;
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
       <header className="flex-shrink-0 bg-card border-b px-3 py-2 space-y-1.5">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
@@ -338,9 +316,7 @@ function MapPage() {
             <div className="text-sm font-semibold tabular-nums">
               완료 {totalStats.doneZones}/{totalStats.totalZones}
             </div>
-            <div className="text-[10px] text-muted-foreground">
-              시도 {totalStats.total}
-            </div>
+            <div className="text-[10px] text-muted-foreground">시도 {totalStats.total}</div>
           </div>
         </div>
         <div className="flex gap-1.5 flex-wrap text-[11px]">
@@ -356,104 +332,64 @@ function MapPage() {
         </div>
       </header>
 
-      <div className="relative flex-1 overflow-hidden bg-muted">
-        <TransformWrapper
-          ref={transformRef}
-          minScale={1}
-          maxScale={8}
-          initialScale={1}
-          doubleClick={{ disabled: true }}
-          onTransform={(ref) => setScale(ref.state.scale)}
-          onPanning={() => (wasDraggingRef.current = true)}
-          panning={{ velocityDisabled: true }}
-        >
-          <TransformComponent
-            wrapperStyle={{ width: "100%", height: "100%" }}
-            contentStyle={{ width: "100%", height: "100%" }}
-          >
-            <div className="relative w-full h-full flex items-center justify-center">
-              <div className="relative inline-block max-w-full max-h-full">
-                {imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt={map.name}
-                    className="block max-w-full max-h-full object-contain select-none pointer-events-none"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="w-[80vw] max-w-2xl aspect-[4/3] bg-white border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm p-6 text-center">
-                    지도 이미지가 업로드되지 않았어요.
-                  </div>
-                )}
-                <div className="absolute inset-0">
-                  {zones.map((z) => {
-                    const meta = ZONE_STATUS_META[z.status];
-                    const left = Math.min(z.x1_pct, z.x2_pct);
-                    const top = Math.min(z.y1_pct, z.y2_pct);
-                    const w = Math.abs(z.x2_pct - z.x1_pct);
-                    const h = Math.abs(z.y2_pct - z.y1_pct);
-                    const isSel = z.id === selectedZoneId;
-                    const st = zoneStats.get(z.id);
-                    return (
-                      <button
-                        key={z.id}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cycleZone(z);
-                        }}
-                        className="absolute flex flex-col items-center justify-center text-center p-0 m-0"
-                        style={{
-                          left: `${left}%`,
-                          top: `${top}%`,
-                          width: `${w}%`,
-                          height: `${h}%`,
-                          backgroundColor: meta.fill,
-                          border: `${isSel ? 3 : 2}px solid ${meta.color}`,
-                          borderRadius: 4,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <span
-                          className="font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-white/85"
-                          style={{
-                            color: meta.color,
-                            fontSize: `${Math.max(9, 12 / scale)}px`,
-                            lineHeight: 1.1,
-                          }}
-                        >
-                          {z.name} · {meta.label}
-                        </span>
-                        {st && st.total > 0 && (
-                          <span
-                            className="mt-0.5 px-1 rounded bg-black/60 text-white tabular-nums"
-                            style={{ fontSize: `${Math.max(8, 10 / scale)}px` }}
-                          >
-                            시도 {st.total}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+      <div className="relative bg-muted flex items-center justify-center p-2">
+        <div className="relative inline-block max-w-full">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={map.name}
+              className="block w-full max-w-full h-auto select-none"
+              draggable={false}
+              onLoad={() => setImageLoaded(true)}
+            />
+          ) : (
+            <div className="w-[90vw] max-w-2xl aspect-[4/3] bg-white border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm p-6 text-center">
+              지도 이미지가 업로드되지 않았어요.
             </div>
-          </TransformComponent>
-        </TransformWrapper>
-
-        <div className="absolute right-3 top-3 flex flex-col gap-1.5">
-          <Button size="icon" variant="secondary" className="w-11 h-11 shadow" onClick={() => transformRef.current?.zoomIn(0.4)}>
-            <Plus className="w-5 h-5" />
-          </Button>
-          <Button size="icon" variant="secondary" className="w-11 h-11 shadow" onClick={() => transformRef.current?.zoomOut(0.4)}>
-            <Minus className="w-5 h-5" />
-          </Button>
-          <Button size="icon" variant="secondary" className="w-11 h-11 shadow" onClick={() => transformRef.current?.resetTransform()}>
-            <Maximize className="w-5 h-5" />
-          </Button>
-          <div className="text-[10px] text-center bg-card/90 backdrop-blur px-1.5 py-0.5 rounded shadow">
-            {Math.round(scale * 100)}%
-          </div>
+          )}
+          {imageLoaded && (
+            <div className="absolute inset-0">
+              {zones.map((z) => {
+                const meta = ZONE_STATUS_META[z.status];
+                const left = Math.min(z.x1_pct, z.x2_pct);
+                const top = Math.min(z.y1_pct, z.y2_pct);
+                const w = Math.abs(z.x2_pct - z.x1_pct);
+                const h = Math.abs(z.y2_pct - z.y1_pct);
+                const isSel = z.id === selectedZoneId;
+                const st = zoneStats.get(z.id);
+                return (
+                  <button
+                    key={z.id}
+                    type="button"
+                    onClick={() => cycleZone(z)}
+                    className="absolute flex flex-col items-center justify-center text-center p-0 m-0"
+                    style={{
+                      left: `${left}%`,
+                      top: `${top}%`,
+                      width: `${w}%`,
+                      height: `${h}%`,
+                      backgroundColor: meta.fill,
+                      border: `${isSel ? 3 : 2}px solid ${meta.color}`,
+                      borderRadius: 4,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span
+                      className="font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-white/85 text-[11px] leading-tight"
+                      style={{ color: meta.color }}
+                    >
+                      {z.name} · {meta.label}
+                    </span>
+                    {st && st.total > 0 && (
+                      <span className="mt-0.5 px-1 rounded bg-black/60 text-white tabular-nums text-[10px]">
+                        시도 {st.total}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {zones.length === 0 && (
@@ -463,8 +399,7 @@ function MapPage() {
         )}
       </div>
 
-      {/* 하단: 선택 구역 + 카운터 */}
-      <footer className="flex-shrink-0 bg-card border-t">
+      <footer className="flex-shrink-0 bg-card border-t sticky bottom-0">
         {selectedZone && selStats ? (
           <div className="p-2 space-y-2">
             <div className="flex items-center gap-2 px-1">
@@ -490,9 +425,7 @@ function MapPage() {
                     style={{ backgroundColor: meta.color }}
                   >
                     <span className="text-sm leading-tight">{meta.label}</span>
-                    <span className="text-xs opacity-90 tabular-nums">
-                      {selStats.by[c]}건
-                    </span>
+                    <span className="text-xs opacity-90 tabular-nums">{selStats.by[c]}건</span>
                   </button>
                 );
               })}
@@ -572,4 +505,3 @@ function MapPage() {
     </div>
   );
 }
-

@@ -44,44 +44,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pins: {
-        Row: {
-          created_at: string
-          id: string
-          map_id: string
-          status: Database["public"]["Enums"]["pin_status"]
-          team_name: string
-          x_pct: number
-          y_pct: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          map_id: string
-          status: Database["public"]["Enums"]["pin_status"]
-          team_name: string
-          x_pct: number
-          y_pct: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          map_id?: string
-          status?: Database["public"]["Enums"]["pin_status"]
-          team_name?: string
-          x_pct?: number
-          y_pct?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pins_map_id_fkey"
-            columns: ["map_id"]
-            isOneToOne: false
-            referencedRelation: "maps"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       support_requests: {
         Row: {
           created_at: string
@@ -107,6 +69,143 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "support_requests_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zone_completions: {
+        Row: {
+          acknowledged: boolean
+          counters: Json
+          created_at: string
+          id: string
+          map_id: string
+          team_name: string
+          zone_id: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          counters?: Json
+          created_at?: string
+          id?: string
+          map_id: string
+          team_name: string
+          zone_id: string
+        }
+        Update: {
+          acknowledged?: boolean
+          counters?: Json
+          created_at?: string
+          id?: string
+          map_id?: string
+          team_name?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zone_completions_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "maps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zone_completions_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zone_events: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          map_id: string
+          team_name: string
+          zone_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          map_id: string
+          team_name: string
+          zone_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          map_id?: string
+          team_name?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zone_events_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "maps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zone_events_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zones: {
+        Row: {
+          created_at: string
+          id: string
+          map_id: string
+          name: string
+          order_idx: number
+          status: string
+          updated_at: string
+          x1_pct: number
+          x2_pct: number
+          y1_pct: number
+          y2_pct: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          map_id: string
+          name?: string
+          order_idx?: number
+          status?: string
+          updated_at?: string
+          x1_pct: number
+          x2_pct: number
+          y1_pct: number
+          y2_pct: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          map_id?: string
+          name?: string
+          order_idx?: number
+          status?: string
+          updated_at?: string
+          x1_pct?: number
+          x2_pct?: number
+          y1_pct?: number
+          y2_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zones_map_id_fkey"
             columns: ["map_id"]
             isOneToOne: false
             referencedRelation: "maps"

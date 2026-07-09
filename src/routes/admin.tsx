@@ -14,8 +14,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard, Square } from "lucide-react";
 import { getMapImageUrl } from "@/lib/map-image";
+import { ZoneEditor } from "@/components/map/ZoneEditor";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -45,6 +46,7 @@ function AdminPage() {
   const [newHouses, setNewHouses] = useState("30");
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
+  const [editingZones, setEditingZones] = useState<MapRow | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -178,11 +180,13 @@ function AdminPage() {
     refresh();
   }
 
-  async function clearPins(m: MapRow) {
+  async function clearData(m: MapRow) {
     setConfirmClear(null);
-    await supabase.from("pins").delete().eq("map_id", m.id);
+    await supabase.from("zone_events").delete().eq("map_id", m.id);
+    await supabase.from("zone_completions").delete().eq("map_id", m.id);
     await supabase.from("support_requests").delete().eq("map_id", m.id);
-    toast.success("모든 핀을 초기화했어요.");
+    await supabase.from("zones").update({ status: "unvisited" }).eq("map_id", m.id);
+    toast.success("이 지도의 카운터·알림을 초기화했어요.");
   }
 
   function signOut() {
@@ -335,8 +339,11 @@ function AdminPage() {
                   <Upload className="w-4 h-4 mr-1" /> 이미지 업로드
                 </span>
               </label>
+              <Button variant="outline" size="sm" onClick={() => setEditingZones(m)}>
+                <Square className="w-4 h-4 mr-1" /> 구역 설정
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setConfirmClear(m)}>
-                핀 초기화
+                기록 초기화
               </Button>
               <Button
                 variant="ghost"
@@ -425,13 +432,23 @@ function AdminPage() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => confirmClear && clearPins(confirmClear)}
+              onClick={() => confirmClear && clearData(confirmClear)}
             >
               초기화
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {editingZones && (
+        <ZoneEditor
+          mapId={editingZones.id}
+          mapImagePath={editingZones.image_path}
+          mapName={editingZones.name}
+          open={!!editingZones}
+          onOpenChange={(o) => !o && setEditingZones(null)}
+        />
+      )}
     </div>
   );
 }

@@ -337,8 +337,11 @@ function AdminPage() {
                   <Upload className="w-4 h-4 mr-1" /> 이미지 업로드
                 </span>
               </label>
+              <Button variant="outline" size="sm" onClick={() => setEditingZones(m)}>
+                <Square className="w-4 h-4 mr-1" /> 구역 설정
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setConfirmClear(m)}>
-                핀 초기화
+                기록 초기화
               </Button>
               <Button
                 variant="ghost"
@@ -427,7 +430,7 @@ function AdminPage() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => confirmClear && clearPins(confirmClear)}
+              onClick={() => confirmClear && clearData(confirmClear)}
             >
               초기화
             </Button>

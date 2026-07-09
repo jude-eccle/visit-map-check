@@ -43,10 +43,10 @@ function AdminPage() {
   const [creating, setCreating] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
-  const [newHouses, setNewHouses] = useState("30");
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
+  const [leaderPhone, setLeaderPhone] = useState("");
 
   useEffect(() => {
     (async () => {

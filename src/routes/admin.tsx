@@ -181,6 +181,13 @@ function AdminPage() {
     await supabase.from("maps").update({ team_memo: v } as never).eq("id", m.id);
   }
 
+  async function updateAddress(m: MapRow, v: string) {
+    const address = v.trim();
+    if (address === m.address) return;
+    await supabase.from("maps").update({ address } as never).eq("id", m.id);
+    refresh();
+  }
+
   async function deleteMap(m: MapRow) {
     setConfirmDel(null);
     if (m.image_path) {

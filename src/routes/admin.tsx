@@ -178,11 +178,13 @@ function AdminPage() {
     refresh();
   }
 
-  async function clearPins(m: MapRow) {
+  async function clearData(m: MapRow) {
     setConfirmClear(null);
-    await supabase.from("pins").delete().eq("map_id", m.id);
+    await supabase.from("zone_events").delete().eq("map_id", m.id);
+    await supabase.from("zone_completions").delete().eq("map_id", m.id);
     await supabase.from("support_requests").delete().eq("map_id", m.id);
-    toast.success("모든 핀을 초기화했어요.");
+    await supabase.from("zones").update({ status: "unvisited" }).eq("map_id", m.id);
+    toast.success("이 지도의 카운터·알림을 초기화했어요.");
   }
 
   function signOut() {

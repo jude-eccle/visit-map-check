@@ -16,7 +16,7 @@ export const Route = createFileRoute("/leader")({
   component: LeaderDashboard,
 });
 
-type MapRow = { id: string; code: string; name: string };
+type MapRow = { id: string; code: string; name: string; address: string };
 type ZoneRow = { id: string; map_id: string; name: string; status: string };
 type EventRow = { id: string; map_id: string; zone_id: string; category: Category };
 type SupportRow = {
@@ -34,6 +34,13 @@ type CompletionRow = {
   counters: Record<string, number>;
   acknowledged: boolean;
   created_at: string;
+};
+type AssignmentRow = {
+  id: string;
+  team_name: string;
+  map_id: string;
+  acknowledged: boolean;
+  assigned_at: string;
 };
 
 function LeaderDashboard() {

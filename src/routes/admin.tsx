@@ -415,14 +415,6 @@ function AdminPage() {
                 onChange={(e) => setNewCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
               />
             </div>
-            <div className="space-y-1">
-              <Label>예상 가구수</Label>
-              <Input
-                inputMode="numeric"
-                value={newHouses}
-                onChange={(e) => setNewHouses(e.target.value.replace(/\D/g, ""))}
-              />
-            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setCreating(false)}>

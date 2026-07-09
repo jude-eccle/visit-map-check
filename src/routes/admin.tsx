@@ -43,10 +43,10 @@ function AdminPage() {
   const [creating, setCreating] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
-  const [newHouses, setNewHouses] = useState("30");
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
+  const [leaderPhone, setLeaderPhone] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -93,21 +93,34 @@ function AdminPage() {
       })
     );
     setPreviews(p);
+    const { data: s } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "leader_phone")
+      .maybeSingle();
+    setLeaderPhone(s?.value ?? "");
+  }
+
+  async function saveLeaderPhone(v: string) {
+    const val = v.trim();
+    setLeaderPhone(val);
+    await supabase
+      .from("app_settings")
+      .upsert({ key: "leader_phone", value: val }, { onConflict: "key" });
+    toast.success("팀장 전화번호가 저장되었어요.");
   }
 
   useEffect(() => {
     if (token) refresh();
   }, [token]);
 
+
   async function createMap() {
     if (!/^\d{4}$/.test(newCode)) return toast.error("코드는 4자리 숫자입니다.");
     if (newName.trim().length < 1) return toast.error("지도 이름을 입력해주세요.");
-    const houses = parseInt(newHouses, 10);
-    if (!Number.isFinite(houses) || houses < 0)
-      return toast.error("가구수를 숫자로 입력해주세요.");
     const { error } = await supabase
       .from("maps")
-      .insert({ code: newCode, name: newName.trim(), total_houses: houses });
+      .insert({ code: newCode, name: newName.trim() });
     if (error) {
       if (error.code === "23505") toast.error("이미 사용 중인 코드입니다.");
       else toast.error("생성 실패, 다시 시도해주세요.");
@@ -116,7 +129,6 @@ function AdminPage() {
     setCreating(false);
     setNewCode("");
     setNewName("");
-    setNewHouses("30");
     toast.success("지도가 추가되었어요.");
     refresh();
   }
@@ -136,12 +148,8 @@ function AdminPage() {
     refresh();
   }
 
-  async function updateHouses(m: MapRow, v: string) {
-    const n = parseInt(v, 10);
-    if (!Number.isFinite(n) || n < 0) return;
-    await supabase.from("maps").update({ total_houses: n }).eq("id", m.id);
-    refresh();
-  }
+
+
 
   async function updateName(m: MapRow, v: string) {
     const name = v.trim();
@@ -240,28 +248,50 @@ function AdminPage() {
   return (
     <div className="min-h-screen">
       <header className="bg-card border-b sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto p-4 flex items-center gap-3">
-          <div className="flex-1">
-            <h1 className="font-bold text-lg">관리자 — 지도 관리</h1>
-            <p className="text-xs text-muted-foreground">
-              지도 추가, 이미지 업로드, 코드/가구수 관리
+        <div className="max-w-3xl mx-auto p-3 sm:p-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3">
+          <div className="min-w-0">
+            <h1 className="font-bold text-base sm:text-lg truncate">관리자 — 지도 관리</h1>
+            <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
+              지도 추가, 이미지 업로드, 구역 설정
             </p>
           </div>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/leader">
-              <LayoutDashboard className="w-4 h-4 mr-1" /> 팀장 대시보드
-            </Link>
-          </Button>
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="w-4 h-4 mr-1" /> 새 지도
-          </Button>
-          <Button variant="ghost" size="sm" onClick={signOut}>
-            로그아웃
-          </Button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/leader">
+                <LayoutDashboard className="w-4 h-4 sm:mr-1" />
+                <span className="hidden sm:inline">팀장 대시보드</span>
+              </Link>
+            </Button>
+            <Button size="sm" onClick={() => setCreating(true)}>
+              <Plus className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">새 지도</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={signOut}>
+              로그아웃
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto p-4 space-y-3">
+      <main className="max-w-3xl mx-auto p-3 sm:p-4 space-y-3">
+        <div className="bg-card border rounded-xl p-4 space-y-2">
+          <Label className="text-sm font-semibold">📞 팀장 전화번호 (전체 공통)</Label>
+          <p className="text-xs text-muted-foreground">
+            팀원 화면의 "팀장님께 전화" 버튼이 이 번호로 전화를 겁니다.
+          </p>
+          <Input
+            type="tel"
+            inputMode="tel"
+            defaultValue={leaderPhone}
+            key={leaderPhone}
+            onBlur={(e) => {
+              if (e.target.value.trim() !== leaderPhone) saveLeaderPhone(e.target.value);
+            }}
+            placeholder="예: 010-1234-5678"
+            className="h-10"
+          />
+        </div>
+
         {maps.length === 0 && (
           <p className="text-center text-muted-foreground py-12">
             아직 지도가 없어요. "새 지도"로 추가하세요.
@@ -299,18 +329,6 @@ function AdminPage() {
                       className="h-8 text-sm font-mono"
                     />
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs whitespace-nowrap">예상 가구수</Label>
-                  <Input
-                    type="number"
-                    defaultValue={m.total_houses}
-                    onBlur={(e) => {
-                      if (parseInt(e.target.value) !== m.total_houses)
-                        updateHouses(m, e.target.value);
-                    }}
-                    className="h-8 w-20 text-sm"
-                  />
                 </div>
               </div>
             </div>
@@ -379,14 +397,6 @@ function AdminPage() {
                 maxLength={4}
                 value={newCode}
                 onChange={(e) => setNewCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>예상 가구수</Label>
-              <Input
-                inputMode="numeric"
-                value={newHouses}
-                onChange={(e) => setNewHouses(e.target.value.replace(/\D/g, ""))}
               />
             </div>
           </div>

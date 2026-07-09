@@ -6,23 +6,30 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   CATEGORY_META,
   CATEGORY_ORDER,
-  NEXT_STATUS,
   ZONE_STATUS_META,
   type Category,
   type ZoneStatus,
 } from "@/lib/zones";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Plus,
   Minus,
   Maximize,
-  HandHelping,
+  Phone,
   ArrowLeft,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getMapImageUrl } from "@/lib/map-image";
+
 
 export const Route = createFileRoute("/map/$code")({
   component: MapPage,
@@ -70,8 +77,12 @@ function MapPage() {
   const [loading, setLoading] = useState(true);
   const [scale, setScale] = useState(1);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [leaderPhone, setLeaderPhone] = useState("");
+  const [confirmRevertZone, setConfirmRevertZone] = useState<ZoneRow | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const wasDraggingRef = useRef(false);
+
 
   useEffect(() => {
     (async () => {
@@ -91,12 +102,14 @@ function MapPage() {
       }
       setMap(m as MapRow);
       setImageUrl(await getMapImageUrl(m.image_path));
-      const [{ data: zs }, { data: es }] = await Promise.all([
+      const [{ data: zs }, { data: es }, { data: ph }] = await Promise.all([
         supabase.from("zones").select("*").eq("map_id", m.id).order("order_idx"),
         supabase.from("zone_events").select("*").eq("map_id", m.id),
+        supabase.from("app_settings").select("value").eq("key", "leader_phone").maybeSingle(),
       ]);
       setZones((zs ?? []) as ZoneRow[]);
       setEvents((es ?? []) as EventRow[]);
+      setLeaderPhone(ph?.value ?? "");
       setLoading(false);
     })();
   }, [code, teamName, navigate]);
@@ -176,10 +189,14 @@ function MapPage() {
       wasDraggingRef.current = false;
       return;
     }
-    const next = NEXT_STATUS[z.status];
-    // Optimistic
+    if (z.status === "done") {
+      setConfirmRevertZone(z);
+      return;
+    }
+    const next: ZoneStatus = z.status === "unvisited" ? "in_progress" : "unvisited";
     setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: next } : x)));
     if (next === "in_progress") setSelectedZoneId(z.id);
+    else if (selectedZoneId === z.id) setSelectedZoneId(null);
 
     const { error } = await supabase.from("zones").update({ status: next }).eq("id", z.id);
     if (error) {
@@ -187,20 +204,38 @@ function MapPage() {
       setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: z.status } : x)));
       return;
     }
+    if (next === "in_progress") toast(`${z.name} 방문중`);
+  }
 
-    if (next === "done") {
-      const stats = zoneStats.get(z.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
-      await supabase.from("zone_completions").insert({
-        zone_id: z.id,
-        map_id: z.map_id,
-        team_name: teamName,
-        counters: { total: stats.total, ...stats.by },
-      });
-      toast.success(`${z.name} 완료 — 팀장에게 알림 전송`);
-    } else if (next === "in_progress") {
-      toast(`${z.name} 방문중`);
+  async function completeZone(z: ZoneRow) {
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
+    const { error } = await supabase.from("zones").update({ status: "done" }).eq("id", z.id);
+    if (error) {
+      toast.error("완료 처리 실패");
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: z.status } : x)));
+      return;
+    }
+    const stats = zoneStats.get(z.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
+    await supabase.from("zone_completions").insert({
+      zone_id: z.id,
+      map_id: z.map_id,
+      team_name: teamName,
+      counters: { total: stats.total, ...stats.by },
+    });
+    toast.success(`${z.name} 완료 — 팀장에게 알림 전송`);
+  }
+
+  async function revertZoneToInProgress(z: ZoneRow) {
+    setConfirmRevertZone(null);
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "in_progress" } : x)));
+    setSelectedZoneId(z.id);
+    const { error } = await supabase.from("zones").update({ status: "in_progress" }).eq("id", z.id);
+    if (error) {
+      toast.error("되돌리기 실패");
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
     }
   }
+
 
   async function addEvent(cat: Category) {
     if (!selectedZone || !map) return;
@@ -253,14 +288,24 @@ function MapPage() {
     setEvents((p) => p.map((e) => (e.id === tempId ? (data as EventRow) : e)));
   }
 
-  async function requestSupport() {
-    if (!map) return;
-    const { error } = await supabase
-      .from("support_requests")
-      .insert({ map_id: map.id, team_name: teamName });
-    if (error) toast.error("지원 요청 실패");
-    else toast.success("지원 요청 전달됨");
+  function callLeader() {
+    const digits = leaderPhone.replace(/[^\d+]/g, "");
+    if (!digits) {
+      toast.error("팀장 전화번호가 아직 등록되지 않았어요. 관리자에게 문의하세요.");
+      return;
+    }
+    window.location.href = `tel:${digits}`;
   }
+
+  function handleLeaveMap() {
+    const incomplete = zones.filter((z) => z.status !== "done").length;
+    if (incomplete > 0) {
+      setConfirmLeave(true);
+      return;
+    }
+    navigate({ to: "/" });
+  }
+
 
   const totalStats = useMemo(() => {
     const by: Record<Category, number> = { done: 0, gift: 0, away: 0, other: 0 };
@@ -452,6 +497,13 @@ function MapPage() {
                 );
               })}
             </div>
+            <Button
+              onClick={() => completeZone(selectedZone)}
+              className="w-full h-14 text-base font-bold"
+              style={{ backgroundColor: ZONE_STATUS_META.done.color, color: "white" }}
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" /> 이 구역 완료
+            </Button>
           </div>
         ) : (
           <div className="p-3 text-center text-sm text-muted-foreground">
@@ -461,14 +513,63 @@ function MapPage() {
           </div>
         )}
         <div className="border-t p-2 grid grid-cols-2 gap-2">
-          <Button variant="outline" className="h-11 text-sm" onClick={requestSupport}>
-            <HandHelping className="w-4 h-4 mr-1" /> 지원 요청
+          <Button variant="outline" className="h-11 text-sm" onClick={callLeader}>
+            <Phone className="w-4 h-4 mr-1" /> 📞 팀장님께 전화
           </Button>
-          <Button variant="outline" className="h-11 text-sm" onClick={() => navigate({ to: "/" })}>
+          <Button variant="outline" className="h-11 text-sm" onClick={handleLeaveMap}>
             <ArrowLeft className="w-4 h-4 mr-1" /> 다른 지도
           </Button>
         </div>
       </footer>
+
+      <Dialog open={!!confirmRevertZone} onOpenChange={(o) => !o && setConfirmRevertZone(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>완료를 취소할까요?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            "{confirmRevertZone?.name}" 구역을 다시 <b>방문중</b> 상태로 되돌립니다.
+            (이미 전송된 완료 알림은 팀장 대시보드에 남아있을 수 있어요.)
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmRevertZone(null)}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmRevertZone && revertZoneToInProgress(confirmRevertZone)}
+            >
+              완료 취소하고 방문중으로
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>정말 이동할까요?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            아직 완료되지 않은 구역이 있습니다 (
+            {zones.filter((z) => z.status !== "done").length}개). 그래도 이동하시겠습니까?
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmLeave(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmLeave(false);
+                navigate({ to: "/" });
+              }}
+            >
+              이동
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

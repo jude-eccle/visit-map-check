@@ -77,8 +77,12 @@ function MapPage() {
   const [loading, setLoading] = useState(true);
   const [scale, setScale] = useState(1);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [leaderPhone, setLeaderPhone] = useState("");
+  const [confirmRevertZone, setConfirmRevertZone] = useState<ZoneRow | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const wasDraggingRef = useRef(false);
+
 
   useEffect(() => {
     (async () => {

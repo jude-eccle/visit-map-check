@@ -14,8 +14,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard, Square } from "lucide-react";
 import { getMapImageUrl } from "@/lib/map-image";
+import { ZoneEditor } from "@/components/map/ZoneEditor";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -45,6 +46,7 @@ function AdminPage() {
   const [newHouses, setNewHouses] = useState("30");
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
+  const [editingZones, setEditingZones] = useState<MapRow | null>(null);
 
   useEffect(() => {
     (async () => {

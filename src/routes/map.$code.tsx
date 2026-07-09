@@ -3,48 +3,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import type { ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUS_META, type PinStatus } from "@/lib/status";
-import { StatusSheet } from "@/components/map/StatusSheet";
-import { Pin } from "@/components/map/Pin";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  NEXT_STATUS,
+  ZONE_STATUS_META,
+  type Category,
+  type ZoneStatus,
+} from "@/lib/zones";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Plus,
   Minus,
   Maximize,
   HandHelping,
-  Home,
   ArrowLeft,
-  Trash2,
-  WifiOff,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { enqueue, flushQueue, queueSize, subscribe as subQueue } from "@/lib/offline-queue";
 import { getMapImageUrl } from "@/lib/map-image";
 
 export const Route = createFileRoute("/map/$code")({
   component: MapPage,
 });
-
-type PinRow = {
-  id: string;
-  map_id: string;
-  x_pct: number;
-  y_pct: number;
-  status: PinStatus;
-  team_name: string;
-  created_at: string;
-};
 
 type MapRow = {
   id: string;
@@ -54,6 +36,27 @@ type MapRow = {
   total_houses: number;
 };
 
+type ZoneRow = {
+  id: string;
+  map_id: string;
+  name: string;
+  x1_pct: number;
+  y1_pct: number;
+  x2_pct: number;
+  y2_pct: number;
+  status: ZoneStatus;
+  order_idx: number;
+};
+
+type EventRow = {
+  id: string;
+  zone_id: string;
+  map_id: string;
+  team_name: string;
+  category: Category;
+  created_at: string;
+};
+
 function MapPage() {
   const { code } = Route.useParams();
   const navigate = useNavigate();
@@ -61,23 +64,15 @@ function MapPage() {
     typeof window !== "undefined" ? localStorage.getItem("teamName") ?? "" : ""
   );
   const [map, setMap] = useState<MapRow | null>(null);
-  const [pins, setPins] = useState<PinRow[]>([]);
+  const [zones, setZones] = useState<ZoneRow[]>([]);
+  const [events, setEvents] = useState<EventRow[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [scale, setScale] = useState(1);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [pendingPos, setPendingPos] = useState<{ x: number; y: number } | null>(null);
-  const [selectedPin, setSelectedPin] = useState<PinRow | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<PinRow | null>(null);
-  const [housesDialogOpen, setHousesDialogOpen] = useState(false);
-  const [houseInput, setHouseInput] = useState("");
-  const [online, setOnline] = useState(true);
-  const [queued, setQueued] = useState(0);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
   const wasDraggingRef = useRef(false);
 
-  // 초기 로드
   useEffect(() => {
     (async () => {
       if (!teamName) {
@@ -95,191 +90,167 @@ function MapPage() {
         throw notFound();
       }
       setMap(m as MapRow);
-      const url = await getMapImageUrl(m.image_path);
-      setImageUrl(url);
-      const { data: ps } = await supabase
-        .from("pins")
-        .select("*")
-        .eq("map_id", m.id)
-        .order("created_at", { ascending: true });
-      setPins((ps ?? []) as PinRow[]);
+      setImageUrl(await getMapImageUrl(m.image_path));
+      const [{ data: zs }, { data: es }] = await Promise.all([
+        supabase.from("zones").select("*").eq("map_id", m.id).order("order_idx"),
+        supabase.from("zone_events").select("*").eq("map_id", m.id),
+      ]);
+      setZones((zs ?? []) as ZoneRow[]);
+      setEvents((es ?? []) as EventRow[]);
       setLoading(false);
     })();
   }, [code, teamName, navigate]);
 
-  // Realtime
   useEffect(() => {
     if (!map) return;
-    const channel = supabase
-      .channel(`pins-${map.id}`)
+    const ch = supabase
+      .channel(`map-${map.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "pins", filter: `map_id=eq.${map.id}` },
+        { event: "*", schema: "public", table: "zones", filter: `map_id=eq.${map.id}` },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setPins((prev) => {
-              const row = payload.new as PinRow;
-              if (prev.some((p) => p.id === row.id)) return prev;
-              return [...prev, row];
+            setZones((p) => {
+              const r = payload.new as ZoneRow;
+              if (p.some((z) => z.id === r.id)) return p;
+              return [...p, r].sort((a, b) => a.order_idx - b.order_idx);
             });
+          } else if (payload.eventType === "UPDATE") {
+            const r = payload.new as ZoneRow;
+            setZones((p) => p.map((z) => (z.id === r.id ? r : z)));
           } else if (payload.eventType === "DELETE") {
-            const oldRow = payload.old as { id: string };
-            setPins((prev) => prev.filter((p) => p.id !== oldRow.id));
+            const r = payload.old as { id: string };
+            setZones((p) => p.filter((z) => z.id !== r.id));
           }
         }
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "maps", filter: `id=eq.${map.id}` },
-        (payload) => setMap(payload.new as MapRow)
+        { event: "*", schema: "public", table: "zone_events", filter: `map_id=eq.${map.id}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setEvents((p) => {
+              const r = payload.new as EventRow;
+              if (p.some((e) => e.id === r.id)) return p;
+              return [...p, r];
+            });
+          } else if (payload.eventType === "DELETE") {
+            const r = payload.old as { id: string };
+            setEvents((p) => p.filter((e) => e.id !== r.id));
+          }
+        }
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(ch);
     };
   }, [map]);
 
-  // 오프라인 상태 & 큐 크기
+  // Zone stats
+  const zoneStats = useMemo(() => {
+    const m = new Map<string, { total: number; by: Record<Category, number> }>();
+    for (const z of zones) m.set(z.id, { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } });
+    for (const e of events) {
+      const s = m.get(e.zone_id);
+      if (!s) continue;
+      s.total += 1;
+      s.by[e.category] += 1;
+    }
+    return m;
+  }, [zones, events]);
+
+  // Auto-select "방문중" zone owned by this team, else first in_progress
   useEffect(() => {
-    const upd = () => setOnline(navigator.onLine);
-    upd();
-    window.addEventListener("online", upd);
-    window.addEventListener("offline", upd);
-    const refreshQ = async () => setQueued(await queueSize());
-    refreshQ();
-    const unsub = subQueue(refreshQ);
-    return () => {
-      window.removeEventListener("online", upd);
-      window.removeEventListener("offline", upd);
-      unsub();
-    };
-  }, []);
+    if (selectedZoneId && zones.some((z) => z.id === selectedZoneId && z.status === "in_progress")) return;
+    const first = zones.find((z) => z.status === "in_progress");
+    setSelectedZoneId(first?.id ?? null);
+  }, [zones, selectedZoneId]);
 
-  const progress = useMemo(() => {
-    if (!map) return { pct: 0, done: 0, denom: 0, skip: 0 };
-    const skip = pins.filter((p) => p.status === "skip").length;
-    const denom = Math.max(1, map.total_houses - skip);
-    const done = pins.length;
-    const pct = Math.min(100, Math.round((done / denom) * 100));
-    return { pct, done, denom, skip };
-  }, [pins, map]);
+  const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
+  const selStats = selectedZone
+    ? zoneStats.get(selectedZone.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } }
+    : null;
 
-  function handleImageTap(e: React.MouseEvent<HTMLDivElement>) {
+  async function cycleZone(z: ZoneRow) {
     if (wasDraggingRef.current) {
       wasDraggingRef.current = false;
       return;
     }
-    if (!imgRef.current) return;
-    const rect = imgRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    if (x < 0 || x > 100 || y < 0 || y > 100) return;
-    setPendingPos({ x, y });
-    setSheetOpen(true);
+    const next = NEXT_STATUS[z.status];
+    // Optimistic
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: next } : x)));
+    if (next === "in_progress") setSelectedZoneId(z.id);
+
+    const { error } = await supabase.from("zones").update({ status: next }).eq("id", z.id);
+    if (error) {
+      toast.error("상태 변경 실패");
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: z.status } : x)));
+      return;
+    }
+
+    if (next === "done") {
+      const stats = zoneStats.get(z.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
+      await supabase.from("zone_completions").insert({
+        zone_id: z.id,
+        map_id: z.map_id,
+        team_name: teamName,
+        counters: { total: stats.total, ...stats.by },
+      });
+      toast.success(`${z.name} 완료 — 팀장에게 알림 전송`);
+    } else if (next === "in_progress") {
+      toast(`${z.name} 방문중`);
+    }
   }
 
-  async function commitPin(status: PinStatus) {
-    if (!map || !pendingPos) return;
-    setSheetOpen(false);
+  async function addEvent(cat: Category) {
+    if (!selectedZone || !map) return;
     const tempId = `tmp-${Date.now()}-${Math.random()}`;
     const now = new Date().toISOString();
-    const optimistic: PinRow = {
+    const optimistic: EventRow = {
       id: tempId,
+      zone_id: selectedZone.id,
       map_id: map.id,
-      x_pct: pendingPos.x,
-      y_pct: pendingPos.y,
-      status,
       team_name: teamName,
+      category: cat,
       created_at: now,
     };
-    setPins((prev) => [...prev, optimistic]);
-    const pos = pendingPos;
-    setPendingPos(null);
-
-    // 임시 id와 실제 서버 id를 모두 추적 — 되돌리기가 어느 시점에 눌려도 정확한 핀을 삭제
+    setEvents((p) => [...p, optimistic]);
     let currentId = tempId;
     let undone = false;
     const undo = async () => {
       if (undone) return;
       undone = true;
-      const idToRemove = currentId;
-      setPins((prev) => prev.filter((p) => p.id !== idToRemove));
-      if (!idToRemove.startsWith("tmp-")) {
-        try {
-          const { error } = await supabase.from("pins").delete().eq("id", idToRemove);
-          if (error) throw error;
-        } catch {
-          await enqueue({ kind: "delete", id: idToRemove });
-        }
+      const id = currentId;
+      setEvents((p) => p.filter((e) => e.id !== id));
+      if (!id.startsWith("tmp-")) {
+        await supabase.from("zone_events").delete().eq("id", id);
       }
     };
-
-    toast(`${STATUS_META[status].label} 저장됨`, {
+    toast(`+1 ${CATEGORY_META[cat].label}`, {
       duration: 5000,
       action: { label: "되돌리기", onClick: undo },
     });
-
-    const trySave = async (attempt = 0): Promise<void> => {
-      if (undone) return;
-      try {
-        const { data, error } = await supabase
-          .from("pins")
-          .insert({
-            map_id: map.id,
-            x_pct: pos.x,
-            y_pct: pos.y,
-            status,
-            team_name: teamName,
-          })
-          .select("*")
-          .single();
-        if (error) throw error;
-        if (undone) {
-          await supabase.from("pins").delete().eq("id", data.id);
-          return;
-        }
-        currentId = data.id;
-        setPins((prev) => prev.map((p) => (p.id === tempId ? (data as PinRow) : p)));
-      } catch (e) {
-        if (attempt < 2 && navigator.onLine) {
-          setTimeout(() => trySave(attempt + 1), 800);
-          return;
-        }
-        await enqueue({
-          kind: "insert",
-          tempId,
-          map_id: map.id,
-          x_pct: pos.x,
-          y_pct: pos.y,
-          status,
-          team_name: teamName,
-          created_at: now,
-        });
-        toast.warning("오프라인 저장됨 — 연결되면 자동 동기화됩니다.");
-      }
-    };
-    trySave();
-  }
-
-  async function deletePin(pin: PinRow) {
-    setConfirmDelete(null);
-    setSelectedPin(null);
-    setPins((prev) => prev.filter((p) => p.id !== pin.id));
-    if (pin.id.startsWith("tmp-")) return;
-    const trySave = async (attempt = 0): Promise<void> => {
-      try {
-        const { error } = await supabase.from("pins").delete().eq("id", pin.id);
-        if (error) throw error;
-      } catch (e) {
-        if (attempt < 2 && navigator.onLine) {
-          setTimeout(() => trySave(attempt + 1), 800);
-          return;
-        }
-        await enqueue({ kind: "delete", id: pin.id });
-        toast.warning("삭제 대기 중 — 연결되면 자동 처리됩니다.");
-      }
-    };
-    trySave();
+    const { data, error } = await supabase
+      .from("zone_events")
+      .insert({
+        zone_id: selectedZone.id,
+        map_id: map.id,
+        team_name: teamName,
+        category: cat,
+      })
+      .select("*")
+      .single();
+    if (error) {
+      toast.error("저장 실패");
+      setEvents((p) => p.filter((e) => e.id !== tempId));
+      return;
+    }
+    if (undone) {
+      await supabase.from("zone_events").delete().eq("id", data.id);
+      return;
+    }
+    currentId = data.id;
+    setEvents((p) => p.map((e) => (e.id === tempId ? (data as EventRow) : e)));
   }
 
   async function requestSupport() {
@@ -287,29 +258,16 @@ function MapPage() {
     const { error } = await supabase
       .from("support_requests")
       .insert({ map_id: map.id, team_name: teamName });
-    if (error) {
-      toast.error("지원 요청 실패, 다시 시도해주세요.");
-      return;
-    }
-    toast.success("지원 요청을 팀장님께 전달했어요.");
+    if (error) toast.error("지원 요청 실패");
+    else toast.success("지원 요청 전달됨");
   }
 
-  async function saveHouses() {
-    if (!map) return;
-    const n = parseInt(houseInput, 10);
-    if (!Number.isFinite(n) || n < 0) {
-      toast.error("숫자를 입력해주세요.");
-      return;
-    }
-    const { error } = await supabase
-      .from("maps")
-      .update({ total_houses: n })
-      .eq("id", map.id);
-    if (error) return toast.error("저장 실패, 다시 시도해주세요.");
-    setMap({ ...map, total_houses: n });
-    setHousesDialogOpen(false);
-    toast.success(`가구수를 ${n}(으)로 변경했어요.`);
-  }
+  const totalStats = useMemo(() => {
+    const by: Record<Category, number> = { done: 0, gift: 0, away: 0, other: 0 };
+    for (const e of events) by[e.category] += 1;
+    const doneCount = zones.filter((z) => z.status === "done").length;
+    return { total: events.length, by, doneZones: doneCount, totalZones: zones.length };
+  }, [events, zones]);
 
   if (loading) {
     return (
@@ -322,8 +280,7 @@ function MapPage() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
-      {/* 상단 헤더 */}
-      <header className="flex-shrink-0 bg-card border-b px-3 py-2.5 space-y-2">
+      <header className="flex-shrink-0 bg-card border-b px-3 py-2 space-y-1.5">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -332,34 +289,28 @@ function MapPage() {
             </div>
             <div className="text-xs text-muted-foreground truncate">{teamName}</div>
           </div>
-          <div className="flex items-center gap-1.5">
-            {!online && (
-              <span className="text-xs flex items-center gap-1 text-status-refuse">
-                <WifiOff className="w-3.5 h-3.5" /> 오프라인
-              </span>
-            )}
-            {queued > 0 && (
-              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                저장 대기 {queued}건
-              </span>
-            )}
+          <div className="text-right">
+            <div className="text-sm font-semibold tabular-nums">
+              완료 {totalStats.doneZones}/{totalStats.totalZones}
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              시도 {totalStats.total}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Progress value={progress.pct} className="h-2.5 flex-1" />
-          <span className="text-sm font-semibold tabular-nums w-14 text-right">
-            {progress.pct}%
-          </span>
-        </div>
-        <div className="text-xs text-muted-foreground flex justify-between">
-          <span>
-            처리 {progress.done}건 / 예상 {map.total_houses}가구
-          </span>
-          <span>대상아님 {progress.skip}건</span>
+        <div className="flex gap-1.5 flex-wrap text-[11px]">
+          {CATEGORY_ORDER.map((c) => (
+            <span
+              key={c}
+              className="px-1.5 py-0.5 rounded font-medium tabular-nums"
+              style={{ backgroundColor: `${CATEGORY_META[c].color}22`, color: CATEGORY_META[c].color }}
+            >
+              {CATEGORY_META[c].short} {totalStats.by[c]}
+            </span>
+          ))}
         </div>
       </header>
 
-      {/* 지도 영역 */}
       <div className="relative flex-1 overflow-hidden bg-muted">
         <TransformWrapper
           ref={transformRef}
@@ -375,227 +326,149 @@ function MapPage() {
             wrapperStyle={{ width: "100%", height: "100%" }}
             contentStyle={{ width: "100%", height: "100%" }}
           >
-            <div
-              className="relative w-full h-full flex items-center justify-center"
-              onClick={handleImageTap}
-            >
+            <div className="relative w-full h-full flex items-center justify-center">
               <div className="relative inline-block max-w-full max-h-full">
                 {imageUrl ? (
                   <img
-                    ref={imgRef}
                     src={imageUrl}
                     alt={map.name}
                     className="block max-w-full max-h-full object-contain select-none pointer-events-none"
                     draggable={false}
                   />
                 ) : (
-                  <div
-                    ref={imgRef as any}
-                    className="w-[80vw] max-w-2xl aspect-[4/3] bg-white border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm p-6 text-center"
-                  >
-                    지도 이미지가 아직 업로드되지 않았어요.
-                    <br />
-                    탭하여 위치는 계속 기록할 수 있어요.
+                  <div className="w-[80vw] max-w-2xl aspect-[4/3] bg-white border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm p-6 text-center">
+                    지도 이미지가 업로드되지 않았어요.
                   </div>
                 )}
-                {/* 핀 오버레이 — 이미지와 같은 부모 안, 동일한 좌표계 */}
-                <div className="absolute inset-0 pointer-events-none">
-                  {pins.map((p) => (
-                    <div
-                      key={p.id}
-                      className="absolute"
-                      style={{ left: `${p.x_pct}%`, top: `${p.y_pct}%` }}
-                    >
-
-
-
+                <div className="absolute inset-0">
+                  {zones.map((z) => {
+                    const meta = ZONE_STATUS_META[z.status];
+                    const left = Math.min(z.x1_pct, z.x2_pct);
+                    const top = Math.min(z.y1_pct, z.y2_pct);
+                    const w = Math.abs(z.x2_pct - z.x1_pct);
+                    const h = Math.abs(z.y2_pct - z.y1_pct);
+                    const isSel = z.id === selectedZoneId;
+                    const st = zoneStats.get(z.id);
+                    return (
                       <button
+                        key={z.id}
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (wasDraggingRef.current) {
-                            wasDraggingRef.current = false;
-                            return;
-                          }
-                          setSelectedPin(p);
+                          cycleZone(z);
                         }}
-                        className="block pointer-events-auto p-0 m-0 border-0 bg-transparent leading-none"
+                        className="absolute flex flex-col items-center justify-center text-center p-0 m-0"
                         style={{
-                          transform: `scale(${1 / scale}) translate(-50%, -91.25%)`,
-                          transformOrigin: "0 0",
+                          left: `${left}%`,
+                          top: `${top}%`,
+                          width: `${w}%`,
+                          height: `${h}%`,
+                          backgroundColor: meta.fill,
+                          border: `${isSel ? 3 : 2}px solid ${meta.color}`,
+                          borderRadius: 4,
+                          cursor: "pointer",
                         }}
-                        aria-label={STATUS_META[p.status].label}
                       >
-                        <Pin status={p.status} size={22} />
+                        <span
+                          className="font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-white/85"
+                          style={{
+                            color: meta.color,
+                            fontSize: `${Math.max(9, 12 / scale)}px`,
+                            lineHeight: 1.1,
+                          }}
+                        >
+                          {z.name} · {meta.label}
+                        </span>
+                        {st && st.total > 0 && (
+                          <span
+                            className="mt-0.5 px-1 rounded bg-black/60 text-white tabular-nums"
+                            style={{ fontSize: `${Math.max(8, 10 / scale)}px` }}
+                          >
+                            시도 {st.total}
+                          </span>
+                        )}
                       </button>
-
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
           </TransformComponent>
         </TransformWrapper>
 
-        {/* 줌 컨트롤 */}
         <div className="absolute right-3 top-3 flex flex-col gap-1.5">
-          <Button
-            size="icon"
-            variant="secondary"
-            className="w-11 h-11 shadow"
-            onClick={() => transformRef.current?.zoomIn(0.4)}
-          >
+          <Button size="icon" variant="secondary" className="w-11 h-11 shadow" onClick={() => transformRef.current?.zoomIn(0.4)}>
             <Plus className="w-5 h-5" />
           </Button>
-          <Button
-            size="icon"
-            variant="secondary"
-            className="w-11 h-11 shadow"
-            onClick={() => transformRef.current?.zoomOut(0.4)}
-          >
+          <Button size="icon" variant="secondary" className="w-11 h-11 shadow" onClick={() => transformRef.current?.zoomOut(0.4)}>
             <Minus className="w-5 h-5" />
           </Button>
-          <Button
-            size="icon"
-            variant="secondary"
-            className="w-11 h-11 shadow"
-            onClick={() => transformRef.current?.resetTransform()}
-          >
+          <Button size="icon" variant="secondary" className="w-11 h-11 shadow" onClick={() => transformRef.current?.resetTransform()}>
             <Maximize className="w-5 h-5" />
           </Button>
           <div className="text-[10px] text-center bg-card/90 backdrop-blur px-1.5 py-0.5 rounded shadow">
             {Math.round(scale * 100)}%
           </div>
         </div>
+
+        {zones.length === 0 && (
+          <div className="absolute inset-x-4 top-4 bg-card/95 border rounded-lg p-3 text-sm text-center text-muted-foreground">
+            아직 이 지도에 구역이 설정되지 않았어요. 관리자 화면에서 구역을 등록해주세요.
+          </div>
+        )}
       </div>
 
-      {/* 하단 액션 */}
-      <footer className="flex-shrink-0 bg-card border-t p-2 grid grid-cols-3 gap-2">
-        <Button
-          variant="outline"
-          className="h-12 text-sm"
-          onClick={requestSupport}
-        >
-          <HandHelping className="w-4 h-4 mr-1" />
-          지원 요청
-        </Button>
-        <Button
-          variant="outline"
-          className="h-12 text-sm"
-          onClick={() => {
-            setHouseInput(String(map.total_houses));
-            setHousesDialogOpen(true);
-          }}
-        >
-          <Home className="w-4 h-4 mr-1" />
-          가구수 {map.total_houses}
-        </Button>
-        <Button
-          variant="outline"
-          className="h-12 text-sm"
-          onClick={() => navigate({ to: "/" })}
-        >
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          다른 지도
-        </Button>
+      {/* 하단: 선택 구역 + 카운터 */}
+      <footer className="flex-shrink-0 bg-card border-t">
+        {selectedZone && selStats ? (
+          <div className="p-2 space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <span
+                className="w-3 h-3 rounded"
+                style={{ backgroundColor: ZONE_STATUS_META.in_progress.color }}
+              />
+              <span className="font-semibold text-sm truncate">
+                현재 작업 중: {selectedZone.name}
+              </span>
+              <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                시도 {selStats.total}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {CATEGORY_ORDER.map((c) => {
+                const meta = CATEGORY_META[c];
+                return (
+                  <button
+                    key={c}
+                    onClick={() => addEvent(c)}
+                    className="h-16 rounded-lg font-semibold text-white flex flex-col items-center justify-center active:scale-[0.98] transition"
+                    style={{ backgroundColor: meta.color }}
+                  >
+                    <span className="text-sm leading-tight">{meta.label}</span>
+                    <span className="text-xs opacity-90 tabular-nums">
+                      {selStats.by[c]}건
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 text-center text-sm text-muted-foreground">
+            {zones.some((z) => z.status === "in_progress")
+              ? "위에서 방문중인 구역을 눌러 선택하세요."
+              : "구역을 탭해 '방문중'으로 표시하면 카운터가 열립니다."}
+          </div>
+        )}
+        <div className="border-t p-2 grid grid-cols-2 gap-2">
+          <Button variant="outline" className="h-11 text-sm" onClick={requestSupport}>
+            <HandHelping className="w-4 h-4 mr-1" /> 지원 요청
+          </Button>
+          <Button variant="outline" className="h-11 text-sm" onClick={() => navigate({ to: "/" })}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> 다른 지도
+          </Button>
+        </div>
       </footer>
-
-      <StatusSheet
-        open={sheetOpen}
-        onOpenChange={(o) => {
-          setSheetOpen(o);
-          if (!o) setPendingPos(null);
-        }}
-        onPick={commitPin}
-      />
-
-      {/* 기존 핀 정보 */}
-      <Dialog open={!!selectedPin} onOpenChange={(o) => !o && setSelectedPin(null)}>
-        <DialogContent className="sm:max-w-sm">
-          {selectedPin && (
-            <>
-              <DialogHeader>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: STATUS_META[selectedPin.status].color }}
-                  />
-                  <DialogTitle>{STATUS_META[selectedPin.status].label}</DialogTitle>
-                </div>
-                <DialogDescription className="pt-1">
-                  {selectedPin.team_name} · {formatTime(selectedPin.created_at)}
-                </DialogDescription>
-              </DialogHeader>
-              <p className="text-sm text-muted-foreground">
-                잘못 체크되었다면 삭제할 수 있습니다. 맞다면 다른 위치를 탭해 계속
-                진행하세요.
-              </p>
-              <DialogFooter className="gap-2">
-                <Button
-                  variant="destructive"
-                  onClick={() => setConfirmDelete(selectedPin)}
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />이 표시 삭제하기
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>이 표시를 삭제할까요?</DialogTitle>
-            <DialogDescription>삭제 후 되돌릴 수 없습니다.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setConfirmDelete(null)}>
-              취소
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => confirmDelete && deletePin(confirmDelete)}
-            >
-              삭제
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={housesDialogOpen} onOpenChange={setHousesDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>예상 가구수 수정</DialogTitle>
-            <DialogDescription>
-              현장에서 실제 가구수가 다르면 조정할 수 있어요.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={houseInput}
-            onChange={(e) => setHouseInput(e.target.value.replace(/\D/g, ""))}
-            className="h-12 text-lg text-center"
-          />
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setHousesDialogOpen(false)}>
-              취소
-            </Button>
-            <Button onClick={saveHouses}>저장</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
-}
-
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

@@ -198,12 +198,17 @@ function MapPage() {
       return;
     }
     const stats = zoneStats.get(z.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
-    await supabase.from("zone_completions").insert({
-      zone_id: z.id,
-      map_id: z.map_id,
-      team_name: teamName,
-      counters: { total: stats.total, ...stats.by },
-    });
+    await supabase.from("zone_completions").upsert(
+      {
+        zone_id: z.id,
+        map_id: z.map_id,
+        team_name: teamName,
+        counters: { total: stats.total, ...stats.by },
+        acknowledged: false,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "zone_id,team_name" },
+    );
     toast.success(`${z.name} 완료 — 팀장에게 알림 전송`);
   }
 
@@ -215,7 +220,13 @@ function MapPage() {
     if (error) {
       toast.error("되돌리기 실패");
       setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
+      return;
     }
+    await supabase
+      .from("zone_completions")
+      .delete()
+      .eq("zone_id", z.id)
+      .eq("team_name", teamName);
   }
 
   async function addEvent(cat: Category) {

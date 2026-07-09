@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { verifyAdminToken } from "@/lib/admin.functions";
+import { getLeaderPhone, setLeaderPhone as setLeaderPhoneFn } from "@/lib/settings.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,21 +94,20 @@ function AdminPage() {
       })
     );
     setPreviews(p);
-    const { data: s } = await supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "leader_phone")
-      .maybeSingle();
+    const s = await getLeaderPhone().catch(() => ({ value: "" }));
     setLeaderPhone(s?.value ?? "");
   }
 
   async function saveLeaderPhone(v: string) {
     const val = v.trim();
     setLeaderPhone(val);
-    await supabase
-      .from("app_settings")
-      .upsert({ key: "leader_phone", value: val }, { onConflict: "key" });
-    toast.success("팀장 전화번호가 저장되었어요.");
+    const t = token ?? localStorage.getItem(TOKEN_KEY) ?? "";
+    try {
+      await setLeaderPhoneFn({ data: { token: t, value: val } });
+      toast.success("팀장 전화번호가 저장되었어요.");
+    } catch {
+      toast.error("저장 실패 — 관리자 인증을 다시 확인해주세요.");
+    }
   }
 
   useEffect(() => {

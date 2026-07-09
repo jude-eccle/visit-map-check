@@ -48,6 +48,12 @@ function Index() {
           <h1 className="text-2xl font-bold tracking-tight">전도팀 방문체크</h1>
         </div>
 
+        {teamName.trim().length >= 2 && (
+          <div className="mb-4">
+            <AssignmentBanner teamName={teamName.trim()} />
+          </div>
+        )}
+
         <form
           onSubmit={onEnter}
           className="bg-card border rounded-2xl p-6 shadow-sm space-y-5"

@@ -102,12 +102,14 @@ function MapPage() {
       }
       setMap(m as MapRow);
       setImageUrl(await getMapImageUrl(m.image_path));
-      const [{ data: zs }, { data: es }] = await Promise.all([
+      const [{ data: zs }, { data: es }, { data: ph }] = await Promise.all([
         supabase.from("zones").select("*").eq("map_id", m.id).order("order_idx"),
         supabase.from("zone_events").select("*").eq("map_id", m.id),
+        supabase.from("app_settings").select("value").eq("key", "leader_phone").maybeSingle(),
       ]);
       setZones((zs ?? []) as ZoneRow[]);
       setEvents((es ?? []) as EventRow[]);
+      setLeaderPhone(ph?.value ?? "");
       setLoading(false);
     })();
   }, [code, teamName, navigate]);

@@ -439,6 +439,16 @@ function AdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {editingZones && (
+        <ZoneEditor
+          mapId={editingZones.id}
+          mapImagePath={editingZones.image_path}
+          mapName={editingZones.name}
+          open={!!editingZones}
+          onOpenChange={(o) => !o && setEditingZones(null)}
+        />
+      )}
     </div>
   );
 }

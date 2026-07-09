@@ -32,8 +32,41 @@ export type Database = {
         }
         Relationships: []
       }
+      assignments: {
+        Row: {
+          acknowledged: boolean
+          assigned_at: string
+          id: string
+          map_id: string
+          team_name: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          assigned_at?: string
+          id?: string
+          map_id: string
+          team_name: string
+        }
+        Update: {
+          acknowledged?: boolean
+          assigned_at?: string
+          id?: string
+          map_id?: string
+          team_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maps: {
         Row: {
+          address: string
           code: string
           created_at: string
           id: string
@@ -43,6 +76,7 @@ export type Database = {
           total_houses: number
         }
         Insert: {
+          address?: string
           code: string
           created_at?: string
           id?: string
@@ -52,6 +86,7 @@ export type Database = {
           total_houses?: number
         }
         Update: {
+          address?: string
           code?: string
           created_at?: string
           id?: string

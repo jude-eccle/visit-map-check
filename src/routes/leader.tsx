@@ -2,14 +2,21 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2, Send } from "lucide-react";
+import { toast } from "sonner";
 import { CATEGORY_META, CATEGORY_ORDER, type Category } from "@/lib/zones";
 
 export const Route = createFileRoute("/leader")({
   component: LeaderDashboard,
 });
 
-type MapRow = { id: string; code: string; name: string };
+type MapRow = { id: string; code: string; name: string; address: string };
 type ZoneRow = { id: string; map_id: string; name: string; status: string };
 type EventRow = { id: string; map_id: string; zone_id: string; category: Category };
 type SupportRow = {
@@ -28,6 +35,13 @@ type CompletionRow = {
   acknowledged: boolean;
   created_at: string;
 };
+type AssignmentRow = {
+  id: string;
+  team_name: string;
+  map_id: string;
+  acknowledged: boolean;
+  assigned_at: string;
+};
 
 function LeaderDashboard() {
   const [maps, setMaps] = useState<MapRow[]>([]);
@@ -35,12 +49,14 @@ function LeaderDashboard() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [supports, setSupports] = useState<SupportRow[]>([]);
   const [completions, setCompletions] = useState<CompletionRow[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
 
   async function refresh() {
-    const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }] =
+    const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }] =
       await Promise.all([
-        supabase.from("maps").select("id, code, name").order("code"),
+        supabase.from("maps").select("id, code, name, address").order("code"),
         supabase.from("zones").select("id, map_id, name, status"),
         supabase.from("zone_events").select("id, map_id, zone_id, category"),
         supabase
@@ -53,12 +69,18 @@ function LeaderDashboard() {
           .select("*")
           .eq("acknowledged", false)
           .order("created_at", { ascending: false }),
+        supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from("assignments" as any)
+          .select("*")
+          .eq("acknowledged", false),
       ]);
     setMaps((m ?? []) as MapRow[]);
     setZones((z ?? []) as ZoneRow[]);
     setEvents((e ?? []) as EventRow[]);
     setSupports((s ?? []) as SupportRow[]);
     setCompletions((c ?? []) as CompletionRow[]);
+    setAssignments((a ?? []) as unknown as AssignmentRow[]);
     setLoading(false);
   }
 
@@ -70,6 +92,7 @@ function LeaderDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "zone_events" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "zone_completions" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "support_requests" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "maps" }, () => refresh())
       .subscribe();
     return () => {
@@ -140,6 +163,35 @@ function LeaderDashboard() {
     refresh();
   }
 
+  const mapById = useMemo(() => {
+    const m = new Map<string, MapRow>();
+    for (const x of maps) m.set(x.id, x);
+    return m;
+  }, [maps]);
+
+  const pendingByTeam = useMemo(() => {
+    const m = new Map<string, AssignmentRow>();
+    for (const a of assignments) {
+      const prev = m.get(a.team_name);
+      if (!prev || new Date(a.assigned_at) > new Date(prev.assigned_at)) m.set(a.team_name, a);
+    }
+    return m;
+  }, [assignments]);
+
+  async function assignMap(team: string, mapId: string) {
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("assignments" as any)
+      .insert({ team_name: team, map_id: mapId } as never);
+    if (error) {
+      toast.error("배정 실패");
+      return;
+    }
+    setAssignFor(null);
+    toast.success(`${team} → ${mapById.get(mapId)?.name} 배정 완료`);
+    refresh();
+  }
+
   return (
     <div className="min-h-screen">
       <header className="bg-card border-b sticky top-0 z-10">
@@ -184,7 +236,10 @@ function LeaderDashboard() {
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <h2 className="font-semibold text-base truncate">{map.name}</h2>
-                    <div className="text-xs text-muted-foreground">코드 {map.code}</div>
+                    <div className="text-xs text-muted-foreground">
+                      코드 {map.code}
+                      {map.address ? ` · 📍 ${map.address}` : ""}
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold tabular-nums">
@@ -218,35 +273,53 @@ function LeaderDashboard() {
 
                 {comps.length > 0 && (
                   <div className="pt-2 border-t space-y-2">
-                    {comps.map((c) => (
-                      <div
-                        key={c.id}
-                        className="flex items-start gap-2 bg-status-done/10 rounded-lg p-2.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-status-done flex-shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0 text-sm">
-                          <div className="font-medium">
-                            {zoneNameById.get(c.zone_id) ?? "구역"} 완료 · {c.team_name}
+                    {comps.map((c) => {
+                      const pending = pendingByTeam.get(c.team_name);
+                      const pendingMap = pending ? mapById.get(pending.map_id) : null;
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex items-start gap-2 bg-status-done/10 rounded-lg p-2.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-status-done flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0 text-sm">
+                            <div className="font-medium">
+                              {zoneNameById.get(c.zone_id) ?? "구역"} 완료 · {c.team_name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(c.created_at).toLocaleString("ko-KR", {
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                              {" · "}
+                              시도 {c.counters?.total ?? 0} ·{" "}
+                              {CATEGORY_ORDER.map(
+                                (k) => `${CATEGORY_META[k].short} ${c.counters?.[k] ?? 0}`
+                              ).join(" / ")}
+                            </div>
+                            {pendingMap && (
+                              <div className="text-xs mt-1 text-primary font-medium">
+                                이미 {pendingMap.name}(코드 {pendingMap.code})로 배정됨
+                              </div>
+                            )}
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(c.created_at).toLocaleString("ko-KR", {
-                              month: "2-digit",
-                              day: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                            {" · "}
-                            시도 {c.counters?.total ?? 0} ·{" "}
-                            {CATEGORY_ORDER.map(
-                              (k) => `${CATEGORY_META[k].short} ${c.counters?.[k] ?? 0}`
-                            ).join(" / ")}
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              size="sm"
+                              variant={pendingMap ? "outline" : "default"}
+                              onClick={() => setAssignFor({ team: c.team_name })}
+                            >
+                              <Send className="w-3.5 h-3.5 mr-1" /> 다음 지도 배정
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => ackCompletion(c.id)}>
+                              확인함
+                            </Button>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" onClick={() => ackCompletion(c.id)}>
-                          확인함
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
@@ -281,6 +354,38 @@ function LeaderDashboard() {
           })
         )}
       </main>
+
+      <Dialog open={!!assignFor} onOpenChange={(o) => !o && setAssignFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {assignFor?.team} 팀에게 다음 지도 배정
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+            {maps.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => assignFor && assignMap(assignFor.team, m.id)}
+                className="w-full text-left border rounded-lg p-3 hover:bg-accent transition"
+              >
+                <div className="font-semibold text-sm">
+                  {m.name} <span className="text-xs font-mono text-muted-foreground">코드 {m.code}</span>
+                </div>
+                {m.address && (
+                  <div className="text-xs text-muted-foreground mt-0.5">📍 {m.address}</div>
+                )}
+              </button>
+            ))}
+            {maps.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                등록된 지도가 없습니다.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

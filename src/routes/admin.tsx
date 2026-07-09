@@ -30,6 +30,7 @@ type MapRow = {
   image_path: string | null;
   total_houses: number;
   team_memo: string;
+  address: string;
 };
 
 const TOKEN_KEY = "admin-token-v1";
@@ -44,6 +45,7 @@ function AdminPage() {
   const [creating, setCreating] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
+  const [newAddress, setNewAddress] = useState("");
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
@@ -120,7 +122,7 @@ function AdminPage() {
     if (newName.trim().length < 1) return toast.error("지도 이름을 입력해주세요.");
     const { error } = await supabase
       .from("maps")
-      .insert({ code: newCode, name: newName.trim() });
+      .insert({ code: newCode, name: newName.trim(), address: newAddress.trim() } as never);
     if (error) {
       if (error.code === "23505") toast.error("이미 사용 중인 코드입니다.");
       else toast.error("생성 실패, 다시 시도해주세요.");
@@ -129,6 +131,7 @@ function AdminPage() {
     setCreating(false);
     setNewCode("");
     setNewName("");
+    setNewAddress("");
     toast.success("지도가 추가되었어요.");
     refresh();
   }
@@ -176,6 +179,13 @@ function AdminPage() {
   async function updateMemo(m: MapRow, v: string) {
     if (v === m.team_memo) return;
     await supabase.from("maps").update({ team_memo: v } as never).eq("id", m.id);
+  }
+
+  async function updateAddress(m: MapRow, v: string) {
+    const address = v.trim();
+    if (address === m.address) return;
+    await supabase.from("maps").update({ address } as never).eq("id", m.id);
+    refresh();
   }
 
   async function deleteMap(m: MapRow) {
@@ -333,6 +343,15 @@ function AdminPage() {
               </div>
             </div>
             <div className="px-4 pb-3 space-y-1">
+              <Label className="text-xs">지역 주소 (팀원에게 안내됨)</Label>
+              <Input
+                defaultValue={m.address}
+                onBlur={(e) => updateAddress(m, e.target.value)}
+                placeholder="예: 강원 삼척시 근덕면 궁촌리 123-4"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="px-4 pb-3 space-y-1">
               <Label className="text-xs">담당 조 메모 (예: 1팀 A조, 1팀 B조)</Label>
               <Textarea
                 defaultValue={m.team_memo}
@@ -388,6 +407,14 @@ function AdminPage() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="예: 삼척 근덕면"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>지역 주소 (선택)</Label>
+              <Input
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                placeholder="예: 강원 삼척시 근덕면 궁촌리 123-4"
               />
             </div>
             <div className="space-y-1">

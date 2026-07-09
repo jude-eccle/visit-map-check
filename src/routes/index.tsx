@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MapPin, ShieldCheck } from "lucide-react";
+import { AssignmentBanner } from "@/components/AssignmentBanner";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -46,6 +47,12 @@ function Index() {
           <MapPin className="w-7 h-7 text-primary" />
           <h1 className="text-2xl font-bold tracking-tight">전도팀 방문체크</h1>
         </div>
+
+        {teamName.trim().length >= 2 && (
+          <div className="mb-4">
+            <AssignmentBanner teamName={teamName.trim()} />
+          </div>
+        )}
 
         <form
           onSubmit={onEnter}

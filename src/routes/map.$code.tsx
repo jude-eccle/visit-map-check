@@ -20,6 +20,7 @@ import { Phone, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { getMapImageUrl } from "@/lib/map-image";
 import { getLeaderPhone } from "@/lib/settings.functions";
+import { AssignmentBanner } from "@/components/AssignmentBanner";
 
 export const Route = createFileRoute("/map/$code")({
   component: MapPage,
@@ -331,6 +332,11 @@ function MapPage() {
             </span>
           ))}
         </div>
+        {teamName && (
+          <div className="px-2 pt-2">
+            <AssignmentBanner teamName={teamName} />
+          </div>
+        )}
       </header>
 
       <div className="relative bg-muted flex items-center justify-center p-2">

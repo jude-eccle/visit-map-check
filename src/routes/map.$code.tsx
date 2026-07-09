@@ -332,6 +332,11 @@ function MapPage() {
             </span>
           ))}
         </div>
+        {teamName && (
+          <div className="px-2 pt-2">
+            <AssignmentBanner teamName={teamName} />
+          </div>
+        )}
       </header>
 
       <div className="relative bg-muted flex items-center justify-center p-2">

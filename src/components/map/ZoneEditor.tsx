@@ -84,11 +84,12 @@ export function ZoneEditor({
     setDrag(null);
     if (w < 2 || h < 2) return; // ignore tiny
     const nextIdx = zones.length;
+    const defaultName = String.fromCharCode(65 + nextIdx); // A, B, C, D, E
     const { data, error } = await supabase
       .from("zones")
       .insert({
         map_id: mapId,
-        name: `구역${nextIdx + 1}`,
+        name: defaultName,
         x1_pct: d.x1,
         y1_pct: d.y1,
         x2_pct: d.x2,

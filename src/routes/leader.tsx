@@ -80,7 +80,7 @@ function LeaderDashboard() {
     setEvents((e ?? []) as EventRow[]);
     setSupports((s ?? []) as SupportRow[]);
     setCompletions((c ?? []) as CompletionRow[]);
-    setAssignments((a ?? []) as AssignmentRow[]);
+    setAssignments((a ?? []) as unknown as AssignmentRow[]);
     setLoading(false);
   }
 

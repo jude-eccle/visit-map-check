@@ -20,6 +20,7 @@ import { Phone, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { getMapImageUrl } from "@/lib/map-image";
 import { getLeaderPhone } from "@/lib/settings.functions";
+import { AssignmentBanner } from "@/components/AssignmentBanner";
 
 export const Route = createFileRoute("/map/$code")({
   component: MapPage,

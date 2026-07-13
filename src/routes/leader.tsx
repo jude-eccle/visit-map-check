@@ -445,6 +445,14 @@ function LeaderDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!photoModal} onOpenChange={(o) => !o && setPhotoModal(null)}>
+        <DialogContent className="sm:max-w-lg p-2 bg-black">
+          {photoModal && (
+            <img src={photoModal} alt="" className="w-full h-auto max-h-[80vh] object-contain" />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

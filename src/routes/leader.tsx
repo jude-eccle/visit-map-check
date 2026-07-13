@@ -42,6 +42,16 @@ type AssignmentRow = {
   acknowledged: boolean;
   assigned_at: string;
 };
+type HandoffRow = {
+  id: string;
+  zone_id: string;
+  map_id: string;
+  team_name: string;
+  kind: "complete" | "handoff";
+  note: string;
+  photo_url: string | null;
+  created_at: string;
+};
 
 function LeaderDashboard() {
   const [maps, setMaps] = useState<MapRow[]>([]);

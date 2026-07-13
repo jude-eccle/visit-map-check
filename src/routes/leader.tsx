@@ -323,12 +323,24 @@ function LeaderDashboard() {
                     {comps.map((c) => {
                       const pending = pendingByTeam.get(c.team_name);
                       const pendingMap = pending ? mapById.get(pending.map_id) : null;
+                      const h = latestHandoffByZoneTeam.get(`${c.zone_id}|${c.team_name}`);
+                      const thumb = h?.photo_url ? thumbUrls[h.photo_url] : null;
                       return (
                         <div
                           key={c.id}
                           className="flex items-start gap-2 bg-status-done/10 rounded-lg p-2.5"
                         >
-                          <CheckCircle2 className="w-4 h-4 text-status-done flex-shrink-0 mt-0.5" />
+                          {thumb ? (
+                            <button
+                              type="button"
+                              onClick={() => setPhotoModal(thumb)}
+                              className="flex-shrink-0"
+                            >
+                              <img src={thumb} alt="" className="w-12 h-12 object-cover rounded border" />
+                            </button>
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4 text-status-done flex-shrink-0 mt-0.5" />
+                          )}
                           <div className="flex-1 min-w-0 text-sm">
                             <div className="font-medium">
                               {zoneNameById.get(c.zone_id) ?? "구역"} 완료 · {c.team_name}

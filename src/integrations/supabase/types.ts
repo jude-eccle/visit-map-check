@@ -64,6 +64,54 @@ export type Database = {
           },
         ]
       }
+      handoffs: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          map_id: string
+          note: string
+          photo_url: string | null
+          team_name: string
+          zone_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          map_id: string
+          note?: string
+          photo_url?: string | null
+          team_name: string
+          zone_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          map_id?: string
+          note?: string
+          photo_url?: string | null
+          team_name?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handoffs_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "maps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handoffs_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maps: {
         Row: {
           address: string

@@ -11,6 +11,7 @@ import {
 import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { CATEGORY_META, CATEGORY_ORDER, type Category } from "@/lib/zones";
+import { getMapImageUrl } from "@/lib/map-image";
 
 export const Route = createFileRoute("/leader")({
   component: LeaderDashboard,
@@ -42,6 +43,16 @@ type AssignmentRow = {
   acknowledged: boolean;
   assigned_at: string;
 };
+type HandoffRow = {
+  id: string;
+  zone_id: string;
+  map_id: string;
+  team_name: string;
+  kind: "complete" | "handoff";
+  note: string;
+  photo_url: string | null;
+  created_at: string;
+};
 
 function LeaderDashboard() {
   const [maps, setMaps] = useState<MapRow[]>([]);
@@ -50,11 +61,14 @@ function LeaderDashboard() {
   const [supports, setSupports] = useState<SupportRow[]>([]);
   const [completions, setCompletions] = useState<CompletionRow[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
+  const [handoffs, setHandoffs] = useState<HandoffRow[]>([]);
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
+  const [photoModal, setPhotoModal] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
 
   async function refresh() {
-    const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }] =
+    const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }, hRes] =
       await Promise.all([
         supabase.from("maps").select("id, code, name, address").order("code"),
         supabase.from("zones").select("id, map_id, name, status"),
@@ -74,6 +88,8 @@ function LeaderDashboard() {
           .from("assignments" as any)
           .select("*")
           .eq("acknowledged", false),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("handoffs" as any).select("*").order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
       ]);
     setMaps((m ?? []) as MapRow[]);
     setZones((z ?? []) as ZoneRow[]);
@@ -81,8 +97,10 @@ function LeaderDashboard() {
     setSupports((s ?? []) as SupportRow[]);
     setCompletions((c ?? []) as CompletionRow[]);
     setAssignments((a ?? []) as unknown as AssignmentRow[]);
+    setHandoffs((hRes.data ?? []) as HandoffRow[]);
     setLoading(false);
   }
+
 
   useEffect(() => {
     refresh();
@@ -94,6 +112,7 @@ function LeaderDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "support_requests" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "maps" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "handoffs" }, () => refresh())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -153,6 +172,34 @@ function LeaderDashboard() {
     for (const z of zones) m.set(z.id, z.name);
     return m;
   }, [zones]);
+
+  const latestHandoffByZoneTeam = useMemo(() => {
+    const m = new Map<string, HandoffRow>();
+    for (const h of handoffs) {
+      const key = `${h.zone_id}|${h.team_name}`;
+      const prev = m.get(key);
+      if (!prev || new Date(h.created_at) > new Date(prev.created_at)) m.set(key, h);
+    }
+    return m;
+  }, [handoffs]);
+
+  useEffect(() => {
+    const missing = handoffs
+      .map((h) => h.photo_url)
+      .filter((p): p is string => !!p && !thumbUrls[p]);
+    if (missing.length === 0) return;
+    (async () => {
+      const entries: Record<string, string> = {};
+      await Promise.all(
+        missing.map(async (p) => {
+          const u = await getMapImageUrl(p);
+          if (u) entries[p] = u;
+        })
+      );
+      if (Object.keys(entries).length) setThumbUrls((prev) => ({ ...prev, ...entries }));
+    })();
+  }, [handoffs, thumbUrls]);
+
 
   async function resolveSupport(id: string) {
     await supabase.from("support_requests").update({ resolved: true }).eq("id", id);
@@ -276,12 +323,24 @@ function LeaderDashboard() {
                     {comps.map((c) => {
                       const pending = pendingByTeam.get(c.team_name);
                       const pendingMap = pending ? mapById.get(pending.map_id) : null;
+                      const h = latestHandoffByZoneTeam.get(`${c.zone_id}|${c.team_name}`);
+                      const thumb = h?.photo_url ? thumbUrls[h.photo_url] : null;
                       return (
                         <div
                           key={c.id}
                           className="flex items-start gap-2 bg-status-done/10 rounded-lg p-2.5"
                         >
-                          <CheckCircle2 className="w-4 h-4 text-status-done flex-shrink-0 mt-0.5" />
+                          {thumb ? (
+                            <button
+                              type="button"
+                              onClick={() => setPhotoModal(thumb)}
+                              className="flex-shrink-0"
+                            >
+                              <img src={thumb} alt="" className="w-12 h-12 object-cover rounded border" />
+                            </button>
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4 text-status-done flex-shrink-0 mt-0.5" />
+                          )}
                           <div className="flex-1 min-w-0 text-sm">
                             <div className="font-medium">
                               {zoneNameById.get(c.zone_id) ?? "구역"} 완료 · {c.team_name}
@@ -384,6 +443,14 @@ function LeaderDashboard() {
               </p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!photoModal} onOpenChange={(o) => !o && setPhotoModal(null)}>
+        <DialogContent className="sm:max-w-lg p-2 bg-black">
+          {photoModal && (
+            <img src={photoModal} alt="" className="w-full h-auto max-h-[80vh] object-contain" />
+          )}
         </DialogContent>
       </Dialog>
     </div>

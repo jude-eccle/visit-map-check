@@ -6,7 +6,7 @@ import { getLeaderPhone, setLeaderPhone as setLeaderPhoneFn } from "@/lib/settin
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+
 import {
   Dialog,
   DialogContent,
@@ -176,10 +176,6 @@ function AdminPage() {
     refresh();
   }
 
-  async function updateMemo(m: MapRow, v: string) {
-    if (v === m.team_memo) return;
-    await supabase.from("maps").update({ team_memo: v } as never).eq("id", m.id);
-  }
 
   async function updateAddress(m: MapRow, v: string) {
     const address = v.trim();
@@ -351,15 +347,8 @@ function AdminPage() {
                 className="h-9 text-sm"
               />
             </div>
-            <div className="px-4 pb-3 space-y-1">
-              <Label className="text-xs">담당 조 메모 (예: 1팀 A조, 1팀 B조)</Label>
-              <Textarea
-                defaultValue={m.team_memo}
-                onBlur={(e) => updateMemo(m, e.target.value)}
-                placeholder="이 코드를 쓰는 조 이름을 적어두세요. 개인정보는 넣지 마세요."
-                className="min-h-[60px] text-sm"
-              />
-            </div>
+            <div className="px-4 pb-3 space-y-1" />
+
             <div className="border-t px-3 py-2 flex flex-wrap gap-2 bg-muted/40">
               <label className="inline-flex">
                 <input
@@ -458,11 +447,12 @@ function AdminPage() {
       <Dialog open={!!confirmClear} onOpenChange={(o) => !o && setConfirmClear(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>모든 핀을 초기화할까요?</DialogTitle>
+            <DialogTitle>이 지도의 방문 기록을 초기화할까요?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            이 지도에 기록된 핀과 지원 요청이 모두 삭제됩니다. 지도 자체는 유지됩니다.
+            이 지도의 모든 방문 기록(구역 상태·카운터·완료 알림·지원 요청)이 삭제됩니다. 계속하시겠습니까?
           </p>
+
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setConfirmClear(null)}>
               취소

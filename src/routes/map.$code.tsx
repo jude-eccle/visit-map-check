@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, notFound } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CATEGORY_META,
@@ -9,6 +9,7 @@ import {
   type ZoneStatus,
 } from "@/lib/zones";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Phone, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  Phone,
+  ArrowLeft,
+  Loader2,
+  CheckCircle2,
+  Handshake,
+  Camera,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { getMapImageUrl } from "@/lib/map-image";
 import { getLeaderPhone } from "@/lib/settings.functions";
@@ -31,17 +40,12 @@ type MapRow = {
   code: string;
   name: string;
   image_path: string | null;
-  total_houses: number;
 };
 
 type ZoneRow = {
   id: string;
   map_id: string;
   name: string;
-  x1_pct: number;
-  y1_pct: number;
-  x2_pct: number;
-  y2_pct: number;
   status: ZoneStatus;
   order_idx: number;
 };
@@ -55,6 +59,19 @@ type EventRow = {
   created_at: string;
 };
 
+type HandoffRow = {
+  id: string;
+  zone_id: string;
+  map_id: string;
+  team_name: string;
+  kind: "complete" | "handoff";
+  note: string;
+  photo_url: string | null;
+  created_at: string;
+};
+
+type DialogMode = { zone: ZoneRow; kind: "complete" | "handoff" } | null;
+
 function MapPage() {
   const { code } = Route.useParams();
   const navigate = useNavigate();
@@ -64,13 +81,21 @@ function MapPage() {
   const [map, setMap] = useState<MapRow | null>(null);
   const [zones, setZones] = useState<ZoneRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [handoffs, setHandoffs] = useState<HandoffRow[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
   const [confirmRevertZone, setConfirmRevertZone] = useState<ZoneRow | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [noteDialog, setNoteDialog] = useState<DialogMode>(null);
+  const [noteText, setNoteText] = useState("");
+  const [notePhoto, setNotePhoto] = useState<File | null>(null);
+  const [notePhotoPreview, setNotePhotoPreview] = useState<string | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
+  const [photoModal, setPhotoModal] = useState<string | null>(null);
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -81,7 +106,7 @@ function MapPage() {
       setLoading(true);
       const { data: m } = await supabase
         .from("maps")
-        .select("id, code, name, image_path, total_houses")
+        .select("id, code, name, image_path")
         .eq("code", code)
         .maybeSingle();
       if (!m) {
@@ -90,13 +115,16 @@ function MapPage() {
       }
       setMap(m as MapRow);
       setImageUrl(await getMapImageUrl(m.image_path));
-      const [{ data: zs }, { data: es }, ph] = await Promise.all([
-        supabase.from("zones").select("*").eq("map_id", m.id).order("order_idx"),
+      const [{ data: zs }, { data: es }, hRes, ph] = await Promise.all([
+        supabase.from("zones").select("id, map_id, name, status, order_idx").eq("map_id", m.id).order("order_idx"),
         supabase.from("zone_events").select("*").eq("map_id", m.id),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("handoffs" as any).select("*").eq("map_id", m.id).order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
         getLeaderPhone().catch(() => ({ value: "" })),
       ]);
       setZones((zs ?? []) as ZoneRow[]);
       setEvents((es ?? []) as EventRow[]);
+      setHandoffs((hRes.data ?? []) as HandoffRow[]);
       setLeaderPhone(ph?.value ?? "");
       setLoading(false);
     })();
@@ -141,6 +169,22 @@ function MapPage() {
           }
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "handoffs", filter: `map_id=eq.${map.id}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setHandoffs((p) => {
+              const r = payload.new as HandoffRow;
+              if (p.some((x) => x.id === r.id)) return p;
+              return [r, ...p];
+            });
+          } else if (payload.eventType === "DELETE") {
+            const r = payload.old as { id: string };
+            setHandoffs((p) => p.filter((x) => x.id !== r.id));
+          }
+        }
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -158,6 +202,33 @@ function MapPage() {
     }
     return m;
   }, [zones, events]);
+
+  const latestHandoffByZone = useMemo(() => {
+    const m = new Map<string, HandoffRow>();
+    for (const h of handoffs) {
+      const prev = m.get(h.zone_id);
+      if (!prev || new Date(h.created_at) > new Date(prev.created_at)) m.set(h.zone_id, h);
+    }
+    return m;
+  }, [handoffs]);
+
+  // Resolve signed URLs for handoff photo thumbnails
+  useEffect(() => {
+    const missing = handoffs
+      .map((h) => h.photo_url)
+      .filter((p): p is string => !!p && !thumbUrls[p]);
+    if (missing.length === 0) return;
+    (async () => {
+      const entries: Record<string, string> = {};
+      await Promise.all(
+        missing.map(async (p) => {
+          const u = await getMapImageUrl(p);
+          if (u) entries[p] = u;
+        })
+      );
+      if (Object.keys(entries).length) setThumbUrls((prev) => ({ ...prev, ...entries }));
+    })();
+  }, [handoffs, thumbUrls]);
 
   useEffect(() => {
     if (selectedZoneId && zones.some((z) => z.id === selectedZoneId && z.status === "in_progress")) return;
@@ -189,27 +260,95 @@ function MapPage() {
     if (next === "in_progress") toast(`${z.name} 방문중`);
   }
 
-  async function completeZone(z: ZoneRow) {
-    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
-    const { error } = await supabase.from("zones").update({ status: "done" }).eq("id", z.id);
+  function openNoteDialog(zone: ZoneRow, kind: "complete" | "handoff") {
+    setNoteText("");
+    setNotePhoto(null);
+    setNotePhotoPreview(null);
+    setNoteDialog({ zone, kind });
+  }
+
+  function closeNoteDialog() {
+    setNoteDialog(null);
+    setNoteText("");
+    setNotePhoto(null);
+    if (notePhotoPreview) URL.revokeObjectURL(notePhotoPreview);
+    setNotePhotoPreview(null);
+  }
+
+  function selectPhoto(file: File | null) {
+    if (notePhotoPreview) URL.revokeObjectURL(notePhotoPreview);
+    setNotePhoto(file);
+    setNotePhotoPreview(file ? URL.createObjectURL(file) : null);
+  }
+
+  async function uploadPhoto(mapId: string, zoneId: string, file: File): Promise<string | null> {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `handoff-photos/${mapId}/${zoneId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage
+      .from("map-images")
+      .upload(path, file, { upsert: false, contentType: file.type });
     if (error) {
-      toast.error("완료 처리 실패");
-      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: z.status } : x)));
-      return;
+      toast.error("사진 업로드 실패");
+      return null;
     }
-    const stats = zoneStats.get(z.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
-    await supabase.from("zone_completions").upsert(
-      {
-        zone_id: z.id,
-        map_id: z.map_id,
+    return path;
+  }
+
+  async function submitNoteDialog() {
+    if (!noteDialog || !map) return;
+    const { zone, kind } = noteDialog;
+    setSavingNote(true);
+    try {
+      let photoPath: string | null = null;
+      if (notePhoto) {
+        photoPath = await uploadPhoto(map.id, zone.id, notePhoto);
+        if (!photoPath) {
+          setSavingNote(false);
+          return;
+        }
+      }
+
+      // Insert handoff record
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("handoffs" as any) as any).insert({
+        map_id: map.id,
+        zone_id: zone.id,
         team_name: teamName,
-        counters: { total: stats.total, ...stats.by },
-        acknowledged: false,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: "zone_id,team_name" },
-    );
-    toast.success(`${z.name} 완료 — 팀장에게 알림 전송`);
+        kind,
+        note: noteText.trim(),
+        photo_url: photoPath,
+      });
+
+      if (kind === "complete") {
+        // Set zone status done + upsert completion
+        setZones((p) => p.map((x) => (x.id === zone.id ? { ...x, status: "done" } : x)));
+        const { error } = await supabase.from("zones").update({ status: "done" }).eq("id", zone.id);
+        if (error) {
+          toast.error("완료 처리 실패");
+          setZones((p) => p.map((x) => (x.id === zone.id ? { ...x, status: zone.status } : x)));
+          setSavingNote(false);
+          return;
+        }
+        const stats = zoneStats.get(zone.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
+        await supabase.from("zone_completions").upsert(
+          {
+            zone_id: zone.id,
+            map_id: zone.map_id,
+            team_name: teamName,
+            counters: { total: stats.total, ...stats.by },
+            acknowledged: false,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: "zone_id,team_name" }
+        );
+        toast.success(`${zone.name} 완료 — 팀장에게 알림 전송`);
+      } else {
+        toast.success(`${zone.name} 교대 인계 기록됨`);
+      }
+      closeNoteDialog();
+    } finally {
+      setSavingNote(false);
+    }
   }
 
   async function revertZoneToInProgress(z: ZoneRow) {
@@ -222,11 +361,7 @@ function MapPage() {
       setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
       return;
     }
-    await supabase
-      .from("zone_completions")
-      .delete()
-      .eq("zone_id", z.id)
-      .eq("team_name", teamName);
+    await supabase.from("zone_completions").delete().eq("zone_id", z.id).eq("team_name", teamName);
   }
 
   async function addEvent(cat: Category) {
@@ -314,6 +449,9 @@ function MapPage() {
   }
   if (!map) return null;
 
+  const selHandoff = selectedZone ? latestHandoffByZone.get(selectedZone.id) : null;
+  const selHandoffThumb = selHandoff?.photo_url ? thumbUrls[selHandoff.photo_url] : null;
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="flex-shrink-0 bg-card border-b px-3 py-2 space-y-1.5">
@@ -350,74 +488,70 @@ function MapPage() {
         )}
       </header>
 
-      <div className="relative bg-muted flex items-center justify-center p-2">
-        <div className="relative inline-block max-w-full">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={map.name}
-              className="block w-full max-w-full h-auto select-none"
-              draggable={false}
-              onLoad={() => setImageLoaded(true)}
-            />
-          ) : (
-            <div className="w-[90vw] max-w-2xl aspect-[4/3] bg-white border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm p-6 text-center">
-              지도 이미지가 업로드되지 않았어요.
-            </div>
-          )}
-          {imageLoaded && (
-            <div className="absolute inset-0">
-              {zones.map((z) => {
-                const meta = ZONE_STATUS_META[z.status];
-                const left = Math.min(z.x1_pct, z.x2_pct);
-                const top = Math.min(z.y1_pct, z.y2_pct);
-                const w = Math.abs(z.x2_pct - z.x1_pct);
-                const h = Math.abs(z.y2_pct - z.y1_pct);
-                const isSel = z.id === selectedZoneId;
-                const st = zoneStats.get(z.id);
-                return (
-                  <button
-                    key={z.id}
-                    type="button"
-                    onClick={() => cycleZone(z)}
-                    className="absolute flex flex-col items-center justify-center text-center p-0 m-0"
-                    style={{
-                      left: `${left}%`,
-                      top: `${top}%`,
-                      width: `${w}%`,
-                      height: `${h}%`,
-                      backgroundColor: meta.fill,
-                      border: `${isSel ? 3 : 2}px solid ${meta.color}`,
-                      borderRadius: 4,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span
-                      className="font-bold whitespace-nowrap px-1.5 py-0.5 rounded bg-white/85 text-[11px] leading-tight"
-                      style={{ color: meta.color }}
-                    >
-                      {z.name} · {meta.label}
-                    </span>
-                    {st && st.total > 0 && (
-                      <span className="mt-0.5 px-1 rounded bg-black/60 text-white tabular-nums text-[10px]">
-                        시도 {st.total}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {zones.length === 0 && (
-          <div className="absolute inset-x-4 top-4 bg-card/95 border rounded-lg p-3 text-sm text-center text-muted-foreground">
-            아직 이 지도에 구역이 설정되지 않았어요. 관리자 화면에서 구역을 등록해주세요.
+      <div className="bg-muted flex items-center justify-center p-2">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={map.name}
+            className="block max-w-full h-auto select-none"
+            draggable={false}
+          />
+        ) : (
+          <div className="w-[90vw] max-w-2xl aspect-[4/3] bg-white border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm p-6 text-center">
+            지도 이미지가 업로드되지 않았어요.
           </div>
         )}
       </div>
 
-      <footer className="flex-shrink-0 bg-card border-t sticky bottom-0">
+      <div className="p-3 space-y-2">
+        {zones.length === 0 ? (
+          <div className="bg-card border rounded-lg p-4 text-sm text-center text-muted-foreground">
+            아직 이 지도에 구역이 설정되지 않았어요. 관리자 화면에서 구역을 등록해주세요.
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {zones.map((z) => {
+              const meta = ZONE_STATUS_META[z.status];
+              const isSel = z.id === selectedZoneId;
+              const st = zoneStats.get(z.id);
+              const h = latestHandoffByZone.get(z.id);
+              const thumb = h?.photo_url ? thumbUrls[h.photo_url] : null;
+              return (
+                <button
+                  key={z.id}
+                  type="button"
+                  onClick={() => cycleZone(z)}
+                  className="rounded-lg p-2 flex flex-col items-center justify-center text-center min-h-[64px] active:scale-[0.98] transition"
+                  style={{
+                    backgroundColor: meta.fill,
+                    border: `${isSel ? 3 : 2}px solid ${meta.color}`,
+                    color: meta.color,
+                  }}
+                >
+                  <span className="font-bold text-base leading-tight">{z.name}</span>
+                  <span className="text-[10px] leading-tight">{meta.label}</span>
+                  {st && st.total > 0 && (
+                    <span className="text-[10px] tabular-nums opacity-80">시도 {st.total}</span>
+                  )}
+                  {thumb && (
+                    <img
+                      src={thumb}
+                      alt=""
+                      className="mt-1 w-8 h-8 object-cover rounded border border-white/60"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPhotoModal(thumb);
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <footer className="flex-shrink-0 bg-card border-t sticky bottom-0 mt-auto">
         {selectedZone && selStats ? (
           <div className="p-2 space-y-2">
             <div className="flex items-center gap-2 px-1">
@@ -432,6 +566,16 @@ function MapPage() {
                 시도 {selStats.total}
               </span>
             </div>
+            {selHandoffThumb && (
+              <button
+                type="button"
+                onClick={() => setPhotoModal(selHandoffThumb)}
+                className="flex items-center gap-2 text-xs text-muted-foreground px-1"
+              >
+                <img src={selHandoffThumb} alt="" className="w-10 h-10 object-cover rounded border" />
+                <span className="truncate">최근 사진 · {selHandoff?.kind === "complete" ? "완료" : "인계"}</span>
+              </button>
+            )}
             <div className="grid grid-cols-2 gap-2">
               {CATEGORY_ORDER.map((c) => {
                 const meta = CATEGORY_META[c];
@@ -448,13 +592,22 @@ function MapPage() {
                 );
               })}
             </div>
-            <Button
-              onClick={() => completeZone(selectedZone)}
-              className="w-full h-14 text-base font-bold"
-              style={{ backgroundColor: ZONE_STATUS_META.done.color, color: "white" }}
-            >
-              <CheckCircle2 className="w-5 h-5 mr-2" /> 이 구역 완료
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={() => openNoteDialog(selectedZone, "handoff")}
+                variant="outline"
+                className="h-12 text-sm font-semibold"
+              >
+                <Handshake className="w-4 h-4 mr-1" /> 교대 인계
+              </Button>
+              <Button
+                onClick={() => openNoteDialog(selectedZone, "complete")}
+                className="h-12 text-base font-bold"
+                style={{ backgroundColor: ZONE_STATUS_META.done.color, color: "white" }}
+              >
+                <CheckCircle2 className="w-5 h-5 mr-1" /> 이 구역 완료
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="p-3 text-center text-sm text-muted-foreground">
@@ -480,7 +633,6 @@ function MapPage() {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             "{confirmRevertZone?.name}" 구역을 다시 <b>방문중</b> 상태로 되돌립니다.
-            (이미 전송된 완료 알림은 팀장 대시보드에 남아있을 수 있어요.)
           </p>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setConfirmRevertZone(null)}>
@@ -518,6 +670,77 @@ function MapPage() {
               이동
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!noteDialog} onOpenChange={(o) => !o && closeNoteDialog()}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {noteDialog?.kind === "complete" ? "이 구역 완료 기록" : "교대 인계 기록"}
+              {noteDialog && <span className="ml-1 text-sm text-muted-foreground">— {noteDialog.zone.name}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="메모 (선택) — 다음 조가 참고할 내용, 주의사항 등"
+              className="min-h-[80px] text-sm"
+            />
+            <div className="space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  selectPhoto(f ?? null);
+                  e.target.value = "";
+                }}
+              />
+              {notePhotoPreview ? (
+                <div className="relative inline-block">
+                  <img src={notePhotoPreview} alt="" className="w-32 h-32 object-cover rounded border" />
+                  <button
+                    type="button"
+                    onClick={() => selectPhoto(null)}
+                    className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full"
+                >
+                  <Camera className="w-4 h-4 mr-1" /> 사진 첨부 (선택)
+                </Button>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closeNoteDialog} disabled={savingNote}>
+              취소
+            </Button>
+            <Button onClick={submitNoteDialog} disabled={savingNote}>
+              {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : "저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!photoModal} onOpenChange={(o) => !o && setPhotoModal(null)}>
+        <DialogContent className="sm:max-w-lg p-2 bg-black">
+          {photoModal && (
+            <img src={photoModal} alt="" className="w-full h-auto max-h-[80vh] object-contain" />
+          )}
         </DialogContent>
       </Dialog>
     </div>

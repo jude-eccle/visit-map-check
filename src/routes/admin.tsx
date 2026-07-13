@@ -351,15 +351,8 @@ function AdminPage() {
                 className="h-9 text-sm"
               />
             </div>
-            <div className="px-4 pb-3 space-y-1">
-              <Label className="text-xs">담당 조 메모 (예: 1팀 A조, 1팀 B조)</Label>
-              <Textarea
-                defaultValue={m.team_memo}
-                onBlur={(e) => updateMemo(m, e.target.value)}
-                placeholder="이 코드를 쓰는 조 이름을 적어두세요. 개인정보는 넣지 마세요."
-                className="min-h-[60px] text-sm"
-              />
-            </div>
+            <div className="px-4 pb-3 space-y-1" />
+
             <div className="border-t px-3 py-2 flex flex-wrap gap-2 bg-muted/40">
               <label className="inline-flex">
                 <input

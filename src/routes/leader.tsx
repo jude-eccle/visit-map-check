@@ -61,11 +61,14 @@ function LeaderDashboard() {
   const [supports, setSupports] = useState<SupportRow[]>([]);
   const [completions, setCompletions] = useState<CompletionRow[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
+  const [handoffs, setHandoffs] = useState<HandoffRow[]>([]);
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
+  const [photoModal, setPhotoModal] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
 
   async function refresh() {
-    const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }] =
+    const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }, hRes] =
       await Promise.all([
         supabase.from("maps").select("id, code, name, address").order("code"),
         supabase.from("zones").select("id, map_id, name, status"),
@@ -85,6 +88,8 @@ function LeaderDashboard() {
           .from("assignments" as any)
           .select("*")
           .eq("acknowledged", false),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("handoffs" as any).select("*").order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
       ]);
     setMaps((m ?? []) as MapRow[]);
     setZones((z ?? []) as ZoneRow[]);
@@ -92,8 +97,10 @@ function LeaderDashboard() {
     setSupports((s ?? []) as SupportRow[]);
     setCompletions((c ?? []) as CompletionRow[]);
     setAssignments((a ?? []) as unknown as AssignmentRow[]);
+    setHandoffs((hRes.data ?? []) as HandoffRow[]);
     setLoading(false);
   }
+
 
   useEffect(() => {
     refresh();

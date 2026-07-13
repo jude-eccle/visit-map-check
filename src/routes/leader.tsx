@@ -112,6 +112,7 @@ function LeaderDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "support_requests" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "maps" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "handoffs" }, () => refresh())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -171,6 +172,34 @@ function LeaderDashboard() {
     for (const z of zones) m.set(z.id, z.name);
     return m;
   }, [zones]);
+
+  const latestHandoffByZoneTeam = useMemo(() => {
+    const m = new Map<string, HandoffRow>();
+    for (const h of handoffs) {
+      const key = `${h.zone_id}|${h.team_name}`;
+      const prev = m.get(key);
+      if (!prev || new Date(h.created_at) > new Date(prev.created_at)) m.set(key, h);
+    }
+    return m;
+  }, [handoffs]);
+
+  useEffect(() => {
+    const missing = handoffs
+      .map((h) => h.photo_url)
+      .filter((p): p is string => !!p && !thumbUrls[p]);
+    if (missing.length === 0) return;
+    (async () => {
+      const entries: Record<string, string> = {};
+      await Promise.all(
+        missing.map(async (p) => {
+          const u = await getMapImageUrl(p);
+          if (u) entries[p] = u;
+        })
+      );
+      if (Object.keys(entries).length) setThumbUrls((prev) => ({ ...prev, ...entries }));
+    })();
+  }, [handoffs, thumbUrls]);
+
 
   async function resolveSupport(id: string) {
     await supabase.from("support_requests").update({ resolved: true }).eq("id", id);

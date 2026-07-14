@@ -249,6 +249,7 @@ function LeaderDashboard() {
       return;
     }
     setAssignFor(null);
+    setAssignMapFor(null);
     toast.success(`${team} → ${mapById.get(mapId)?.name} 배정 완료`);
     refresh();
   }

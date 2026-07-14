@@ -70,6 +70,15 @@ type HandoffRow = {
   created_at: string;
 };
 
+type ActivityRow = {
+  id: string;
+  zone_id: string;
+  map_id: string;
+  team_name: string;
+  started_at: string;
+  ended_at: string | null;
+};
+
 type DialogMode = { zone: ZoneRow; kind: "complete" | "handoff" } | null;
 
 function MapPage() {

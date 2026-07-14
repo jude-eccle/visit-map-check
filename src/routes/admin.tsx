@@ -638,6 +638,7 @@ function AdminPage() {
           mapId={editingZones.id}
           mapImagePath={editingZones.image_path}
           mapName={editingZones.name}
+          token={token}
           open={!!editingZones}
           onOpenChange={(o) => !o && setEditingZones(null)}
         />

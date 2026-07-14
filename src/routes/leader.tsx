@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2, Send } from "lucide-react";
+import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { CATEGORY_META, CATEGORY_ORDER, type Category } from "@/lib/zones";
 import { getMapImageUrl } from "@/lib/map-image";

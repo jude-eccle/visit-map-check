@@ -126,6 +126,7 @@ function LeaderDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "maps" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "handoffs" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "team_names" }, () => refresh())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);

@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  adminCreateZone,
+  adminDeleteZone,
+  adminRenameZone,
+  adminResetZoneStatuses,
+  adminSwapZoneOrder,
+} from "@/lib/admin-mutations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,12 +25,14 @@ type ZoneRow = {
 export function ZoneEditor({
   mapId,
   mapName,
+  token,
   open,
   onOpenChange,
 }: {
   mapId: string;
   mapImagePath?: string | null;
   mapName: string;
+  token: string;
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
@@ -48,35 +57,35 @@ export function ZoneEditor({
   async function addZone() {
     const nextIdx = zones.length;
     const name = newName.trim() || String.fromCharCode(65 + nextIdx);
-    const { data, error } = await supabase
-      .from("zones")
-      .insert({
-        map_id: mapId,
-        name,
-        order_idx: nextIdx,
-        // dummy coords (legacy NOT NULL columns)
-        x1_pct: 0,
-        y1_pct: 0,
-        x2_pct: 0,
-        y2_pct: 0,
-      })
-      .select("id, map_id, name, status, order_idx")
-      .single();
-    if (error) return toast.error("구역 추가 실패");
-    setZones((p) => [...p, data as ZoneRow]);
-    setNewName("");
+    try {
+      const row = await adminCreateZone({
+        data: { token, mapId, name, orderIdx: nextIdx },
+      });
+      setZones((p) => [...p, row as ZoneRow]);
+      setNewName("");
+    } catch {
+      toast.error("구역 추가 실패");
+    }
   }
 
   async function renameZone(z: ZoneRow, name: string) {
     const n = name.trim();
     if (!n || n === z.name) return;
-    await supabase.from("zones").update({ name: n }).eq("id", z.id);
-    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, name: n } : x)));
+    try {
+      await adminRenameZone({ data: { token, id: z.id, name: n } });
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, name: n } : x)));
+    } catch {
+      toast.error("이름 변경 실패");
+    }
   }
 
   async function delZone(z: ZoneRow) {
-    await supabase.from("zones").delete().eq("id", z.id);
-    setZones((p) => p.filter((x) => x.id !== z.id));
+    try {
+      await adminDeleteZone({ data: { token, id: z.id } });
+      setZones((p) => p.filter((x) => x.id !== z.id));
+    } catch {
+      toast.error("삭제 실패");
+    }
   }
 
   async function move(z: ZoneRow, dir: -1 | 1) {
@@ -89,16 +98,23 @@ export function ZoneEditor({
     next[idx] = { ...b, order_idx: a.order_idx };
     next[j] = { ...a, order_idx: b.order_idx };
     setZones(next);
-    await Promise.all([
-      supabase.from("zones").update({ order_idx: b.order_idx }).eq("id", a.id),
-      supabase.from("zones").update({ order_idx: a.order_idx }).eq("id", b.id),
-    ]);
+    try {
+      await adminSwapZoneOrder({
+        data: { token, aId: a.id, aOrder: a.order_idx, bId: b.id, bOrder: b.order_idx },
+      });
+    } catch {
+      toast.error("순서 변경 실패");
+    }
   }
 
   async function resetStatuses() {
-    await supabase.from("zones").update({ status: "unvisited" }).eq("map_id", mapId);
-    setZones((p) => p.map((z) => ({ ...z, status: "unvisited" })));
-    toast.success("모든 구역 상태를 미방문으로 초기화했어요.");
+    try {
+      await adminResetZoneStatuses({ data: { token, mapId } });
+      setZones((p) => p.map((z) => ({ ...z, status: "unvisited" })));
+      toast.success("모든 구역 상태를 미방문으로 초기화했어요.");
+    } catch {
+      toast.error("초기화 실패");
+    }
   }
 
   return (

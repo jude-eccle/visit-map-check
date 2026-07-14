@@ -3,6 +3,16 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { verifyAdminToken } from "@/lib/admin.functions";
 import { getLeaderPhone, setLeaderPhone as setLeaderPhoneFn } from "@/lib/settings.functions";
+import {
+  adminCreateMap,
+  adminUpdateMap,
+  adminDeleteMap,
+  adminClearMapData,
+  adminCreateTeamName,
+  adminRenameTeamName,
+  adminDeleteTeamName,
+  adminSwapTeamOrder,
+} from "@/lib/admin-mutations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,14 +122,13 @@ function AdminPage() {
 
   async function addTeamName() {
     const name = newTeamName.trim();
-    if (!name) return;
+    if (!name || !token) return;
     const maxOrder = teamNames.reduce((a, t) => Math.max(a, t.order_idx), 0);
-    const { error } = await supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from("team_names" as any)
-      .insert({ name, order_idx: maxOrder + 1 } as never);
-    if (error) {
-      if (error.code === "23505") toast.error("이미 존재하는 조 이름입니다.");
+    try {
+      await adminCreateTeamName({ data: { token, name, orderIdx: maxOrder + 1 } });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("duplicate_name")) toast.error("이미 존재하는 조 이름입니다.");
       else toast.error("추가 실패");
       return;
     }
@@ -128,24 +137,23 @@ function AdminPage() {
   }
 
   async function deleteTeamName(id: string) {
-    await supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from("team_names" as any)
-      .delete()
-      .eq("id", id);
+    if (!token) return;
+    try {
+      await adminDeleteTeamName({ data: { token, id } });
+    } catch {
+      toast.error("삭제 실패");
+    }
     refresh();
   }
 
   async function renameTeamName(t: TeamNameRow, v: string) {
     const name = v.trim();
-    if (!name || name === t.name) return;
-    const { error } = await supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from("team_names" as any)
-      .update({ name })
-      .eq("id", t.id);
-    if (error) {
-      if (error.code === "23505") toast.error("이미 존재하는 조 이름입니다.");
+    if (!name || name === t.name || !token) return;
+    try {
+      await adminRenameTeamName({ data: { token, id: t.id, name } });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("duplicate_name")) toast.error("이미 존재하는 조 이름입니다.");
       else toast.error("변경 실패");
     }
     refresh();
@@ -153,21 +161,16 @@ function AdminPage() {
 
   async function moveTeamName(idx: number, dir: -1 | 1) {
     const j = idx + dir;
-    if (j < 0 || j >= teamNames.length) return;
+    if (j < 0 || j >= teamNames.length || !token) return;
     const a = teamNames[idx];
     const b = teamNames[j];
-    await Promise.all([
-      supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from("team_names" as any)
-        .update({ order_idx: b.order_idx })
-        .eq("id", a.id),
-      supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from("team_names" as any)
-        .update({ order_idx: a.order_idx })
-        .eq("id", b.id),
-    ]);
+    try {
+      await adminSwapTeamOrder({
+        data: { token, aId: a.id, aOrder: a.order_idx, bId: b.id, bOrder: b.order_idx },
+      });
+    } catch {
+      toast.error("순서 변경 실패");
+    }
     refresh();
   }
 
@@ -189,13 +192,16 @@ function AdminPage() {
 
 
   async function createMap() {
+    if (!token) return;
     if (!/^\d{4}$/.test(newCode)) return toast.error("코드는 4자리 숫자입니다.");
     if (newName.trim().length < 1) return toast.error("지도 이름을 입력해주세요.");
-    const { error } = await supabase
-      .from("maps")
-      .insert({ code: newCode, name: newName.trim(), address: newAddress.trim() } as never);
-    if (error) {
-      if (error.code === "23505") toast.error("이미 사용 중인 코드입니다.");
+    try {
+      await adminCreateMap({
+        data: { token, code: newCode, name: newName.trim(), address: newAddress.trim() },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("duplicate_code")) toast.error("이미 사용 중인 코드입니다.");
       else toast.error("생성 실패, 다시 시도해주세요.");
       return;
     }
@@ -208,16 +214,22 @@ function AdminPage() {
   }
 
   async function uploadImage(m: MapRow, file: File) {
+    if (!token) return;
     const ext = file.name.split(".").pop() || "jpg";
     const path = `${m.id}/${Date.now()}.${ext}`;
     const { error } = await supabase.storage
       .from("map-images")
       .upload(path, file, { upsert: true, contentType: file.type });
     if (error) return toast.error("업로드 실패");
+    try {
+      await adminUpdateMap({ data: { token, id: m.id, patch: { image_path: path } } });
+    } catch {
+      toast.error("저장 실패");
+      return;
+    }
     if (m.image_path) {
       await supabase.storage.from("map-images").remove([m.image_path]);
     }
-    await supabase.from("maps").update({ image_path: path }).eq("id", m.id);
     toast.success("이미지 업데이트 완료");
     refresh();
   }
@@ -227,18 +239,24 @@ function AdminPage() {
 
   async function updateName(m: MapRow, v: string) {
     const name = v.trim();
-    if (!name || name === m.name) return;
-    await supabase.from("maps").update({ name }).eq("id", m.id);
+    if (!name || name === m.name || !token) return;
+    try {
+      await adminUpdateMap({ data: { token, id: m.id, patch: { name } } });
+    } catch {
+      toast.error("변경 실패");
+    }
     refresh();
   }
 
   async function updateCode(m: MapRow, v: string) {
     const code = v.trim();
-    if (code === m.code) return;
+    if (code === m.code || !token) return;
     if (!/^\d{4}$/.test(code)) return toast.error("코드는 4자리 숫자입니다.");
-    const { error } = await supabase.from("maps").update({ code }).eq("id", m.id);
-    if (error) {
-      if (error.code === "23505") toast.error("이미 사용 중인 코드입니다.");
+    try {
+      await adminUpdateMap({ data: { token, id: m.id, patch: { code } } });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("duplicate_code")) toast.error("이미 사용 중인 코드입니다.");
       else toast.error("변경 실패");
       refresh();
       return;
@@ -250,27 +268,37 @@ function AdminPage() {
 
   async function updateAddress(m: MapRow, v: string) {
     const address = v.trim();
-    if (address === m.address) return;
-    await supabase.from("maps").update({ address } as never).eq("id", m.id);
+    if (address === m.address || !token) return;
+    try {
+      await adminUpdateMap({ data: { token, id: m.id, patch: { address } } });
+    } catch {
+      toast.error("변경 실패");
+    }
     refresh();
   }
 
   async function deleteMap(m: MapRow) {
     setConfirmDel(null);
-    if (m.image_path) {
-      await supabase.storage.from("map-images").remove([m.image_path]);
+    if (!token) return;
+    try {
+      await adminDeleteMap({ data: { token, id: m.id } });
+    } catch {
+      toast.error("삭제 실패");
+      return;
     }
-    await supabase.from("maps").delete().eq("id", m.id);
     toast.success("삭제되었어요.");
     refresh();
   }
 
   async function clearData(m: MapRow) {
     setConfirmClear(null);
-    await supabase.from("zone_events").delete().eq("map_id", m.id);
-    await supabase.from("zone_completions").delete().eq("map_id", m.id);
-    await supabase.from("support_requests").delete().eq("map_id", m.id);
-    await supabase.from("zones").update({ status: "unvisited" }).eq("map_id", m.id);
+    if (!token) return;
+    try {
+      await adminClearMapData({ data: { token, id: m.id } });
+    } catch {
+      toast.error("초기화 실패");
+      return;
+    }
     toast.success("이 지도의 카운터·알림을 초기화했어요.");
   }
 
@@ -279,6 +307,7 @@ function AdminPage() {
     setToken(null);
     setEntry("");
   }
+
 
   if (checking) {
     return (
@@ -609,6 +638,7 @@ function AdminPage() {
           mapId={editingZones.id}
           mapImagePath={editingZones.image_path}
           mapName={editingZones.name}
+          token={token}
           open={!!editingZones}
           onOpenChange={(o) => !o && setEditingZones(null)}
         />

@@ -210,7 +210,9 @@ function Index() {
                   <BellRing className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-primary font-semibold">
-                      팀장님이 다음 지도를 배정했습니다
+                      {pending.status === "acknowledged"
+                        ? "현재 배정된 지도"
+                        : "팀장님이 다음 지도를 배정했습니다"}
                     </div>
                     <div className="font-bold text-base">
                       {pending.map.name}{" "}

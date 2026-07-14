@@ -345,6 +345,40 @@ function LeaderDashboard() {
                 >
                   <Send className="w-3.5 h-3.5 mr-1" /> 다음 지도 배정 ({map.name})
                 </Button>
+                {(() => {
+                  const active = activeByMap.get(map.id) ?? [];
+                  if (active.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-1.5 text-xs">
+                      <span className="text-muted-foreground self-center">배정됨:</span>
+                      {active.map((a) => (
+                        <span
+                          key={a.id}
+                          className="inline-flex items-center gap-1 border rounded-full pl-2 pr-1 py-0.5 bg-accent/40"
+                        >
+                          <span className="font-medium">{a.team_name}</span>
+                          <span
+                            className={
+                              a.status === "acknowledged"
+                                ? "text-status-done text-[10px]"
+                                : "text-muted-foreground text-[10px]"
+                            }
+                          >
+                            {a.status === "acknowledged" ? "확인함" : "대기중"}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="배정 취소"
+                            onClick={() => cancelAssignment(a)}
+                            className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-4 gap-1.5 text-center">
                   {CATEGORY_ORDER.map((c) => (
                     <div

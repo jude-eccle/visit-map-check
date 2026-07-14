@@ -57,16 +57,16 @@ function Index() {
     const { data } = await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from("assignments" as any)
-      .select("id, map_id, maps!inner(code, name, address)")
+      .select("id, map_id, status, maps!inner(code, name, address)")
       .eq("team_name", name)
-      .eq("status", "pending")
+      .in("status", ["pending", "acknowledged"])
       .order("assigned_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (data) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const d = data as any;
-      setPending({ id: d.id, map_id: d.map_id, map: d.maps });
+      setPending({ id: d.id, map_id: d.map_id, status: d.status, map: d.maps });
     } else {
       setPending(null);
     }

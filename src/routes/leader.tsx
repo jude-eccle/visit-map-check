@@ -469,6 +469,45 @@ function LeaderDashboard() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!assignMapFor} onOpenChange={(o) => !o && setAssignMapFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {assignMapFor?.name} <span className="text-xs font-mono text-muted-foreground">코드 {assignMapFor?.code}</span> — 조 선택
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+            {teamNames.map((t) => {
+              const p = pendingByTeam.get(t.name);
+              const pMap = p ? mapById.get(p.map_id) : null;
+              const alreadyThis = pMap && assignMapFor && pMap.id === assignMapFor.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => assignMapFor && assignMap(t.name, assignMapFor.id)}
+                  className="w-full text-left border rounded-lg p-3 hover:bg-accent transition flex items-center justify-between gap-2"
+                >
+                  <div className="font-semibold text-sm">{t.name}</div>
+                  {pMap && (
+                    <div className={`text-[11px] ${alreadyThis ? "text-status-done" : "text-primary"}`}>
+                      {alreadyThis ? "이미 이 지도 배정됨" : `이미 ${pMap.name}에 배정됨`}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+            {teamNames.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                등록된 조가 없습니다. 관리자 화면에서 추가하세요.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
+
       <Dialog open={!!photoModal} onOpenChange={(o) => !o && setPhotoModal(null)}>
         <DialogContent className="sm:max-w-lg p-2 bg-black">
           {photoModal && (

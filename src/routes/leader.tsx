@@ -239,6 +239,17 @@ function LeaderDashboard() {
     return m;
   }, [assignments]);
 
+  const activeByMap = useMemo(() => {
+    const g = new Map<string, AssignmentRow[]>();
+    // Only show each team's LATEST active assignment against its current map
+    for (const a of pendingByTeam.values()) {
+      const l = g.get(a.map_id) ?? [];
+      l.push(a);
+      g.set(a.map_id, l);
+    }
+    return g;
+  }, [pendingByTeam]);
+
   async function assignMap(team: string, mapId: string) {
     const { error } = await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,6 +262,22 @@ function LeaderDashboard() {
     setAssignFor(null);
     setAssignMapFor(null);
     toast.success(`${team} → ${mapById.get(mapId)?.name} 배정 완료`);
+    refresh();
+  }
+
+  async function cancelAssignment(a: AssignmentRow) {
+    const mapName = mapById.get(a.map_id)?.name ?? "이 지도";
+    if (!confirm(`${a.team_name}의 ${mapName} 배정을 취소할까요?`)) return;
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("assignments" as any)
+      .update({ status: "cancelled" })
+      .eq("id", a.id);
+    if (error) {
+      toast.error("취소 실패");
+      return;
+    }
+    toast.success(`${a.team_name} 배정 취소됨`);
     refresh();
   }
 

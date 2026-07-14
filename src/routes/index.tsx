@@ -58,7 +58,7 @@ function Index() {
       .from("assignments" as any)
       .select("id, map_id, maps!inner(code, name, address)")
       .eq("team_name", name)
-      .eq("acknowledged", false)
+      .eq("status", "pending")
       .order("assigned_at", { ascending: false })
       .limit(1)
       .maybeSingle();

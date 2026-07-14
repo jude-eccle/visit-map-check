@@ -34,24 +34,24 @@ export type Database = {
       }
       assignments: {
         Row: {
-          acknowledged: boolean
           assigned_at: string
           id: string
           map_id: string
+          status: string
           team_name: string
         }
         Insert: {
-          acknowledged?: boolean
           assigned_at?: string
           id?: string
           map_id: string
+          status?: string
           team_name: string
         }
         Update: {
-          acknowledged?: boolean
           assigned_at?: string
           id?: string
           map_id?: string
+          status?: string
           team_name?: string
         }
         Relationships: [

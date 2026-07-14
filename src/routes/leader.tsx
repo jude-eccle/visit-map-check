@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2, Send } from "lucide-react";
+import { ArrowLeft, HandHelping, Loader2, MapPin, CheckCircle2, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { CATEGORY_META, CATEGORY_ORDER, type Category } from "@/lib/zones";
 import { getMapImageUrl } from "@/lib/map-image";
@@ -40,7 +40,7 @@ type AssignmentRow = {
   id: string;
   team_name: string;
   map_id: string;
-  acknowledged: boolean;
+  status: "pending" | "acknowledged" | "superseded" | "cancelled";
   assigned_at: string;
 };
 type HandoffRow = {
@@ -93,7 +93,7 @@ function LeaderDashboard() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .from("assignments" as any)
           .select("*")
-          .eq("acknowledged", false),
+          .in("status", ["pending", "acknowledged"]),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from("handoffs" as any).select("*").order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
       ]);
@@ -239,6 +239,17 @@ function LeaderDashboard() {
     return m;
   }, [assignments]);
 
+  const activeByMap = useMemo(() => {
+    const g = new Map<string, AssignmentRow[]>();
+    // Only show each team's LATEST active assignment against its current map
+    for (const a of pendingByTeam.values()) {
+      const l = g.get(a.map_id) ?? [];
+      l.push(a);
+      g.set(a.map_id, l);
+    }
+    return g;
+  }, [pendingByTeam]);
+
   async function assignMap(team: string, mapId: string) {
     const { error } = await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,6 +262,22 @@ function LeaderDashboard() {
     setAssignFor(null);
     setAssignMapFor(null);
     toast.success(`${team} → ${mapById.get(mapId)?.name} 배정 완료`);
+    refresh();
+  }
+
+  async function cancelAssignment(a: AssignmentRow) {
+    const mapName = mapById.get(a.map_id)?.name ?? "이 지도";
+    if (!confirm(`${a.team_name}의 ${mapName} 배정을 취소할까요?`)) return;
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("assignments" as any)
+      .update({ status: "cancelled" })
+      .eq("id", a.id);
+    if (error) {
+      toast.error("취소 실패");
+      return;
+    }
+    toast.success(`${a.team_name} 배정 취소됨`);
     refresh();
   }
 
@@ -318,6 +345,40 @@ function LeaderDashboard() {
                 >
                   <Send className="w-3.5 h-3.5 mr-1" /> 다음 지도 배정 ({map.name})
                 </Button>
+                {(() => {
+                  const active = activeByMap.get(map.id) ?? [];
+                  if (active.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-1.5 text-xs">
+                      <span className="text-muted-foreground self-center">배정됨:</span>
+                      {active.map((a) => (
+                        <span
+                          key={a.id}
+                          className="inline-flex items-center gap-1 border rounded-full pl-2 pr-1 py-0.5 bg-accent/40"
+                        >
+                          <span className="font-medium">{a.team_name}</span>
+                          <span
+                            className={
+                              a.status === "acknowledged"
+                                ? "text-status-done text-[10px]"
+                                : "text-muted-foreground text-[10px]"
+                            }
+                          >
+                            {a.status === "acknowledged" ? "확인함" : "대기중"}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="배정 취소"
+                            onClick={() => cancelAssignment(a)}
+                            className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-4 gap-1.5 text-center">
                   {CATEGORY_ORDER.map((c) => (
                     <div

@@ -58,7 +58,8 @@ export const adminUpdateMap = createServerFn({ method: "POST" })
       patch.image_path = data.patch.image_path === null ? null : s(data.patch.image_path, 500);
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("maps").update(patch).eq("id", data.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabaseAdmin.from("maps").update(patch as any).eq("id", data.id);
     if (error) throw new Error(error.code === "23505" ? "duplicate_code" : error.message);
     return { ok: true as const };
   });

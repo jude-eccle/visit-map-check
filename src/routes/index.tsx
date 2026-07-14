@@ -22,6 +22,7 @@ type TeamName = { id: string; name: string; order_idx: number };
 type PendingAssignment = {
   id: string;
   map_id: string;
+  status: "pending" | "acknowledged";
   map: { code: string; name: string; address: string };
 };
 
@@ -56,16 +57,16 @@ function Index() {
     const { data } = await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from("assignments" as any)
-      .select("id, map_id, maps!inner(code, name, address)")
+      .select("id, map_id, status, maps!inner(code, name, address)")
       .eq("team_name", name)
-      .eq("status", "pending")
+      .in("status", ["pending", "acknowledged"])
       .order("assigned_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (data) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const d = data as any;
-      setPending({ id: d.id, map_id: d.map_id, map: d.maps });
+      setPending({ id: d.id, map_id: d.map_id, status: d.status, map: d.maps });
     } else {
       setPending(null);
     }
@@ -114,11 +115,13 @@ function Index() {
 
   async function goToPending() {
     if (!pending) return;
-    await supabase
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .from("assignments" as any)
-      .update({ status: "acknowledged" })
-      .eq("id", pending.id);
+    if (pending.status === "pending") {
+      await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("assignments" as any)
+        .update({ status: "acknowledged" })
+        .eq("id", pending.id);
+    }
     navigate({ to: "/map/$code", params: { code: pending.map.code } });
   }
 
@@ -207,7 +210,9 @@ function Index() {
                   <BellRing className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-primary font-semibold">
-                      팀장님이 다음 지도를 배정했습니다
+                      {pending.status === "acknowledged"
+                        ? "현재 배정된 지도"
+                        : "팀장님이 다음 지도를 배정했습니다"}
                     </div>
                     <div className="font-bold text-base">
                       {pending.map.name}{" "}
@@ -236,7 +241,7 @@ function Index() {
                     <Copy className="w-4 h-4 mr-1" /> 📋 주소 복사
                   </Button>
                   <Button onClick={goToPending} className="h-12 font-bold">
-                    바로 이동 <ArrowRight className="w-4 h-4 ml-1" />
+                    {pending.status === "acknowledged" ? "이어서 이동" : "바로 이동"} <ArrowRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>

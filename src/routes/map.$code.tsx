@@ -70,6 +70,15 @@ type HandoffRow = {
   created_at: string;
 };
 
+type ActivityRow = {
+  id: string;
+  zone_id: string;
+  map_id: string;
+  team_name: string;
+  started_at: string;
+  ended_at: string | null;
+};
+
 type DialogMode = { zone: ZoneRow; kind: "complete" | "handoff" } | null;
 
 function MapPage() {
@@ -82,6 +91,7 @@ function MapPage() {
   const [zones, setZones] = useState<ZoneRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [handoffs, setHandoffs] = useState<HandoffRow[]>([]);
+  const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
@@ -115,16 +125,19 @@ function MapPage() {
       }
       setMap(m as MapRow);
       setImageUrl(await getMapImageUrl(m.image_path));
-      const [{ data: zs }, { data: es }, hRes, ph] = await Promise.all([
+      const [{ data: zs }, { data: es }, hRes, aRes, ph] = await Promise.all([
         supabase.from("zones").select("id, map_id, name, status, order_idx").eq("map_id", m.id).order("order_idx"),
         supabase.from("zone_events").select("*").eq("map_id", m.id),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from("handoffs" as any).select("*").eq("map_id", m.id).order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("zone_activity" as any).select("*").eq("map_id", m.id).is("ended_at", null)) as unknown as Promise<{ data: ActivityRow[] | null }>,
         getLeaderPhone().catch(() => ({ value: "" })),
       ]);
       setZones((zs ?? []) as ZoneRow[]);
       setEvents((es ?? []) as EventRow[]);
       setHandoffs((hRes.data ?? []) as HandoffRow[]);
+      setActivity((aRes.data ?? []) as ActivityRow[]);
       setLeaderPhone(ph?.value ?? "");
       setLoading(false);
     })();
@@ -185,6 +198,26 @@ function MapPage() {
           }
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "zone_activity", filter: `map_id=eq.${map.id}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const r = payload.new as ActivityRow;
+            setActivity((p) => (p.some((x) => x.id === r.id) ? p : [...p, r]));
+          } else if (payload.eventType === "UPDATE") {
+            const r = payload.new as ActivityRow;
+            setActivity((p) => {
+              // Keep only currently-active rows in state
+              const rest = p.filter((x) => x.id !== r.id);
+              return r.ended_at == null ? [...rest, r] : rest;
+            });
+          } else if (payload.eventType === "DELETE") {
+            const r = payload.old as { id: string };
+            setActivity((p) => p.filter((x) => x.id !== r.id));
+          }
+        }
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -212,6 +245,35 @@ function MapPage() {
     return m;
   }, [handoffs]);
 
+  // zone_id -> list of team names currently active in that zone
+  const teamsInZone = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const a of activity) {
+      if (a.ended_at) continue;
+      const arr = m.get(a.zone_id) ?? [];
+      if (!arr.includes(a.team_name)) arr.push(a.team_name);
+      m.set(a.zone_id, arr);
+    }
+    return m;
+  }, [activity]);
+
+  // Does the current team have an open activity row for this zone?
+  const myActivityByZone = useMemo(() => {
+    const m = new Map<string, ActivityRow>();
+    for (const a of activity) {
+      if (a.ended_at || a.team_name !== teamName) continue;
+      m.set(a.zone_id, a);
+    }
+    return m;
+  }, [activity, teamName]);
+
+  // Effective display status per zone: done > in_progress (any active team) > unvisited
+  function displayStatus(z: ZoneRow): ZoneStatus {
+    if (z.status === "done") return "done";
+    if ((teamsInZone.get(z.id)?.length ?? 0) > 0) return "in_progress";
+    return "unvisited";
+  }
+
   // Resolve signed URLs for handoff photo thumbnails
   useEffect(() => {
     const missing = handoffs
@@ -230,34 +292,68 @@ function MapPage() {
     })();
   }, [handoffs, thumbUrls]);
 
+  // Auto-select the zone THIS team is currently active in
   useEffect(() => {
-    if (selectedZoneId && zones.some((z) => z.id === selectedZoneId && z.status === "in_progress")) return;
-    const first = zones.find((z) => z.status === "in_progress");
-    setSelectedZoneId(first?.id ?? null);
-  }, [zones, selectedZoneId]);
+    if (selectedZoneId && myActivityByZone.has(selectedZoneId)) return;
+    const firstMine = zones.find((z) => myActivityByZone.has(z.id) && z.status !== "done");
+    setSelectedZoneId(firstMine?.id ?? null);
+  }, [zones, selectedZoneId, myActivityByZone]);
 
   const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
   const selStats = selectedZone
     ? zoneStats.get(selectedZone.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } }
     : null;
 
+  // Tap = per-team 2-state toggle: unvisited <-> in_progress (never done).
+  // Only "이 구역 완료" button can set done.
   async function cycleZone(z: ZoneRow) {
     if (z.status === "done") {
       setConfirmRevertZone(z);
       return;
     }
-    const next: ZoneStatus = z.status === "unvisited" ? "in_progress" : "unvisited";
-    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: next } : x)));
-    if (next === "in_progress") setSelectedZoneId(z.id);
-    else if (selectedZoneId === z.id) setSelectedZoneId(null);
-
-    const { error } = await supabase.from("zones").update({ status: next }).eq("id", z.id);
-    if (error) {
-      toast.error("상태 변경 실패");
-      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: z.status } : x)));
-      return;
+    const mine = myActivityByZone.get(z.id);
+    if (mine) {
+      // Close my activity for this zone
+      setActivity((p) => p.filter((x) => x.id !== mine.id));
+      if (selectedZoneId === z.id) setSelectedZoneId(null);
+      const { error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("zone_activity" as any)
+        .update({ ended_at: new Date().toISOString() } as never)
+        .eq("id", mine.id);
+      if (error) {
+        toast.error("상태 변경 실패");
+        setActivity((p) => [...p, mine]);
+        return;
+      }
+      toast(`${z.name} 방문 종료`);
+    } else {
+      // Start my activity for this zone
+      const tempId = `tmp-${Date.now()}`;
+      const optimistic: ActivityRow = {
+        id: tempId,
+        zone_id: z.id,
+        map_id: z.map_id,
+        team_name: teamName,
+        started_at: new Date().toISOString(),
+        ended_at: null,
+      };
+      setActivity((p) => [...p, optimistic]);
+      setSelectedZoneId(z.id);
+      const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("zone_activity" as any)
+        .insert({ zone_id: z.id, map_id: z.map_id, team_name: teamName } as never)
+        .select("*")
+        .single();
+      if (error || !data) {
+        toast.error("상태 변경 실패");
+        setActivity((p) => p.filter((x) => x.id !== tempId));
+        return;
+      }
+      setActivity((p) => p.map((x) => (x.id === tempId ? ((data as unknown) as ActivityRow) : x)));
+      toast(`${z.name} 방문중`);
     }
-    if (next === "in_progress") toast(`${z.name} 방문중`);
   }
 
   function openNoteDialog(zone: ZoneRow, kind: "complete" | "handoff") {
@@ -329,6 +425,14 @@ function MapPage() {
           setSavingNote(false);
           return;
         }
+        // Close all active zone_activity rows for this zone (all teams)
+        await supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from("zone_activity" as any)
+          .update({ ended_at: new Date().toISOString() } as never)
+          .eq("zone_id", zone.id)
+          .is("ended_at", null);
+        setActivity((p) => p.filter((x) => x.zone_id !== zone.id));
         const stats = zoneStats.get(zone.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
         await supabase.from("zone_completions").upsert(
           {
@@ -341,7 +445,7 @@ function MapPage() {
           },
           { onConflict: "zone_id,team_name" }
         );
-        toast.success(`${zone.name} 완료 — 팀장에게 알림 전송`);
+        toast.success(`${zone.name} 완료 (${teamName}) — 팀장에게 알림 전송`);
       } else {
         toast.success(`${zone.name} 교대 인계 기록됨`);
       }
@@ -353,13 +457,24 @@ function MapPage() {
 
   async function revertZoneToInProgress(z: ZoneRow) {
     setConfirmRevertZone(null);
-    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "in_progress" } : x)));
-    setSelectedZoneId(z.id);
-    const { error } = await supabase.from("zones").update({ status: "in_progress" }).eq("id", z.id);
+    // Set zone back to unvisited; the team can tap again to open a fresh activity row
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "unvisited" } : x)));
+    const { error } = await supabase.from("zones").update({ status: "unvisited" }).eq("id", z.id);
     if (error) {
       toast.error("되돌리기 실패");
       setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
       return;
+    }
+    // Re-open activity for this team so the counters footer becomes available
+    const { data } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("zone_activity" as any)
+      .insert({ zone_id: z.id, map_id: z.map_id, team_name: teamName } as never)
+      .select("*")
+      .single();
+    if (data) {
+      setActivity((p) => [...p, (data as unknown) as ActivityRow]);
+      setSelectedZoneId(z.id);
     }
     await supabase.from("zone_completions").delete().eq("zone_id", z.id).eq("team_name", teamName);
   }
@@ -511,11 +626,13 @@ function MapPage() {
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {zones.map((z) => {
-              const meta = ZONE_STATUS_META[z.status];
+              const ds = displayStatus(z);
+              const meta = ZONE_STATUS_META[ds];
               const isSel = z.id === selectedZoneId;
               const st = zoneStats.get(z.id);
               const h = latestHandoffByZone.get(z.id);
               const thumb = h?.photo_url ? thumbUrls[h.photo_url] : null;
+              const teams = teamsInZone.get(z.id) ?? [];
               return (
                 <button
                   key={z.id}
@@ -530,6 +647,11 @@ function MapPage() {
                 >
                   <span className="font-bold text-base leading-tight">{z.name}</span>
                   <span className="text-[10px] leading-tight">{meta.label}</span>
+                  {ds === "in_progress" && teams.length > 0 && (
+                    <span className="text-[10px] leading-tight font-medium">
+                      {teams.join(", ")}
+                    </span>
+                  )}
                   {st && st.total > 0 && (
                     <span className="text-[10px] tabular-nums opacity-80">시도 {st.total}</span>
                   )}
@@ -611,7 +733,7 @@ function MapPage() {
           </div>
         ) : (
           <div className="p-3 text-center text-sm text-muted-foreground">
-            {zones.some((z) => z.status === "in_progress")
+            {zones.some((z) => myActivityByZone.has(z.id))
               ? "위에서 방문중인 구역을 눌러 선택하세요."
               : "구역을 탭해 '방문중'으로 표시하면 카운터가 열립니다."}
           </div>

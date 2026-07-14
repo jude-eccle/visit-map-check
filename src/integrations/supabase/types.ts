@@ -201,6 +201,48 @@ export type Database = {
         }
         Relationships: []
       }
+      zone_activity: {
+        Row: {
+          ended_at: string | null
+          id: string
+          map_id: string
+          started_at: string
+          team_name: string
+          zone_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          map_id: string
+          started_at?: string
+          team_name: string
+          zone_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          map_id?: string
+          started_at?: string
+          team_name?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zone_activity_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "maps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zone_activity_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zone_completions: {
         Row: {
           acknowledged: boolean

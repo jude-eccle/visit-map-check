@@ -241,7 +241,7 @@ function Index() {
                     <Copy className="w-4 h-4 mr-1" /> 📋 주소 복사
                   </Button>
                   <Button onClick={goToPending} className="h-12 font-bold">
-                    바로 이동 <ArrowRight className="w-4 h-4 ml-1" />
+                    {pending.status === "acknowledged" ? "이어서 이동" : "바로 이동"} <ArrowRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>

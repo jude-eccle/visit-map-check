@@ -40,7 +40,7 @@ type AssignmentRow = {
   id: string;
   team_name: string;
   map_id: string;
-  acknowledged: boolean;
+  status: "pending" | "acknowledged" | "superseded" | "cancelled";
   assigned_at: string;
 };
 type HandoffRow = {

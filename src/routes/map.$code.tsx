@@ -245,6 +245,35 @@ function MapPage() {
     return m;
   }, [handoffs]);
 
+  // zone_id -> list of team names currently active in that zone
+  const teamsInZone = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const a of activity) {
+      if (a.ended_at) continue;
+      const arr = m.get(a.zone_id) ?? [];
+      if (!arr.includes(a.team_name)) arr.push(a.team_name);
+      m.set(a.zone_id, arr);
+    }
+    return m;
+  }, [activity]);
+
+  // Does the current team have an open activity row for this zone?
+  const myActivityByZone = useMemo(() => {
+    const m = new Map<string, ActivityRow>();
+    for (const a of activity) {
+      if (a.ended_at || a.team_name !== teamName) continue;
+      m.set(a.zone_id, a);
+    }
+    return m;
+  }, [activity, teamName]);
+
+  // Effective display status per zone: done > in_progress (any active team) > unvisited
+  function displayStatus(z: ZoneRow): ZoneStatus {
+    if (z.status === "done") return "done";
+    if ((teamsInZone.get(z.id)?.length ?? 0) > 0) return "in_progress";
+    return "unvisited";
+  }
+
   // Resolve signed URLs for handoff photo thumbnails
   useEffect(() => {
     const missing = handoffs
@@ -263,34 +292,68 @@ function MapPage() {
     })();
   }, [handoffs, thumbUrls]);
 
+  // Auto-select the zone THIS team is currently active in
   useEffect(() => {
-    if (selectedZoneId && zones.some((z) => z.id === selectedZoneId && z.status === "in_progress")) return;
-    const first = zones.find((z) => z.status === "in_progress");
-    setSelectedZoneId(first?.id ?? null);
-  }, [zones, selectedZoneId]);
+    if (selectedZoneId && myActivityByZone.has(selectedZoneId)) return;
+    const firstMine = zones.find((z) => myActivityByZone.has(z.id) && z.status !== "done");
+    setSelectedZoneId(firstMine?.id ?? null);
+  }, [zones, selectedZoneId, myActivityByZone]);
 
   const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
   const selStats = selectedZone
     ? zoneStats.get(selectedZone.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } }
     : null;
 
+  // Tap = per-team 2-state toggle: unvisited <-> in_progress (never done).
+  // Only "이 구역 완료" button can set done.
   async function cycleZone(z: ZoneRow) {
     if (z.status === "done") {
       setConfirmRevertZone(z);
       return;
     }
-    const next: ZoneStatus = z.status === "unvisited" ? "in_progress" : "unvisited";
-    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: next } : x)));
-    if (next === "in_progress") setSelectedZoneId(z.id);
-    else if (selectedZoneId === z.id) setSelectedZoneId(null);
-
-    const { error } = await supabase.from("zones").update({ status: next }).eq("id", z.id);
-    if (error) {
-      toast.error("상태 변경 실패");
-      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: z.status } : x)));
-      return;
+    const mine = myActivityByZone.get(z.id);
+    if (mine) {
+      // Close my activity for this zone
+      setActivity((p) => p.filter((x) => x.id !== mine.id));
+      if (selectedZoneId === z.id) setSelectedZoneId(null);
+      const { error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("zone_activity" as any)
+        .update({ ended_at: new Date().toISOString() } as never)
+        .eq("id", mine.id);
+      if (error) {
+        toast.error("상태 변경 실패");
+        setActivity((p) => [...p, mine]);
+        return;
+      }
+      toast(`${z.name} 방문 종료`);
+    } else {
+      // Start my activity for this zone
+      const tempId = `tmp-${Date.now()}`;
+      const optimistic: ActivityRow = {
+        id: tempId,
+        zone_id: z.id,
+        map_id: z.map_id,
+        team_name: teamName,
+        started_at: new Date().toISOString(),
+        ended_at: null,
+      };
+      setActivity((p) => [...p, optimistic]);
+      setSelectedZoneId(z.id);
+      const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("zone_activity" as any)
+        .insert({ zone_id: z.id, map_id: z.map_id, team_name: teamName } as never)
+        .select("*")
+        .single();
+      if (error || !data) {
+        toast.error("상태 변경 실패");
+        setActivity((p) => p.filter((x) => x.id !== tempId));
+        return;
+      }
+      setActivity((p) => p.map((x) => (x.id === tempId ? (data as ActivityRow) : x)));
+      toast(`${z.name} 방문중`);
     }
-    if (next === "in_progress") toast(`${z.name} 방문중`);
   }
 
   function openNoteDialog(zone: ZoneRow, kind: "complete" | "handoff") {

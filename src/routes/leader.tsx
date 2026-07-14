@@ -93,7 +93,7 @@ function LeaderDashboard() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .from("assignments" as any)
           .select("*")
-          .eq("acknowledged", false),
+          .in("status", ["pending", "acknowledged"]),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from("handoffs" as any).select("*").order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
       ]);

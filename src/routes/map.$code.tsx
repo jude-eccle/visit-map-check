@@ -626,11 +626,13 @@ function MapPage() {
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {zones.map((z) => {
-              const meta = ZONE_STATUS_META[z.status];
+              const ds = displayStatus(z);
+              const meta = ZONE_STATUS_META[ds];
               const isSel = z.id === selectedZoneId;
               const st = zoneStats.get(z.id);
               const h = latestHandoffByZone.get(z.id);
               const thumb = h?.photo_url ? thumbUrls[h.photo_url] : null;
+              const teams = teamsInZone.get(z.id) ?? [];
               return (
                 <button
                   key={z.id}
@@ -645,6 +647,11 @@ function MapPage() {
                 >
                   <span className="font-bold text-base leading-tight">{z.name}</span>
                   <span className="text-[10px] leading-tight">{meta.label}</span>
+                  {ds === "in_progress" && teams.length > 0 && (
+                    <span className="text-[10px] leading-tight font-medium">
+                      {teams.join(", ")}
+                    </span>
+                  )}
                   {st && st.total > 0 && (
                     <span className="text-[10px] tabular-nums opacity-80">시도 {st.total}</span>
                   )}

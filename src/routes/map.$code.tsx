@@ -351,7 +351,7 @@ function MapPage() {
         setActivity((p) => p.filter((x) => x.id !== tempId));
         return;
       }
-      setActivity((p) => p.map((x) => (x.id === tempId ? (data as ActivityRow) : x)));
+      setActivity((p) => p.map((x) => (x.id === tempId ? ((data as unknown) as ActivityRow) : x)));
       toast(`${z.name} 방문중`);
     }
   }

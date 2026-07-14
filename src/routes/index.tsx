@@ -22,6 +22,7 @@ type TeamName = { id: string; name: string; order_idx: number };
 type PendingAssignment = {
   id: string;
   map_id: string;
+  status: "pending" | "acknowledged";
   map: { code: string; name: string; address: string };
 };
 

@@ -117,7 +117,7 @@ function Index() {
     await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from("assignments" as any)
-      .update({ acknowledged: true })
+      .update({ status: "acknowledged" })
       .eq("id", pending.id);
     navigate({ to: "/map/$code", params: { code: pending.map.code } });
   }

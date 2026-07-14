@@ -177,6 +177,30 @@ export type Database = {
           },
         ]
       }
+      team_names: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          order_idx: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          order_idx?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          order_idx?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       zone_completions: {
         Row: {
           acknowledged: boolean

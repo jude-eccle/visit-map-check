@@ -54,6 +54,8 @@ type HandoffRow = {
   created_at: string;
 };
 
+type TeamNameRow = { id: string; name: string; order_idx: number };
+
 function LeaderDashboard() {
   const [maps, setMaps] = useState<MapRow[]>([]);
   const [zones, setZones] = useState<ZoneRow[]>([]);
@@ -62,10 +64,14 @@ function LeaderDashboard() {
   const [completions, setCompletions] = useState<CompletionRow[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [handoffs, setHandoffs] = useState<HandoffRow[]>([]);
+  const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [photoModal, setPhotoModal] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // assignFor: legacy per-completion selector picks a map for a fixed team;
+  // assignMapFor: per-map selector picks a team for a fixed map.
   const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
+  const [assignMapFor, setAssignMapFor] = useState<MapRow | null>(null);
 
   async function refresh() {
     const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }, hRes] =
@@ -99,6 +105,13 @@ function LeaderDashboard() {
     setAssignments((a ?? []) as unknown as AssignmentRow[]);
     setHandoffs((hRes.data ?? []) as HandoffRow[]);
     setLoading(false);
+    const { data: tn } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("team_names" as any)
+      .select("id, name, order_idx")
+      .order("order_idx");
+    setTeamNames(((tn ?? []) as unknown) as TeamNameRow[]);
+    setLoading(false);
   }
 
 
@@ -113,6 +126,7 @@ function LeaderDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "maps" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "handoffs" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "team_names" }, () => refresh())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -235,6 +249,7 @@ function LeaderDashboard() {
       return;
     }
     setAssignFor(null);
+    setAssignMapFor(null);
     toast.success(`${team} → ${mapById.get(mapId)?.name} 배정 완료`);
     refresh();
   }
@@ -295,6 +310,14 @@ function LeaderDashboard() {
                     <div className="text-[10px] text-muted-foreground">완료 구역</div>
                   </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setAssignMapFor(map)}
+                >
+                  <Send className="w-3.5 h-3.5 mr-1" /> 다음 지도 배정 ({map.name})
+                </Button>
                 <div className="grid grid-cols-4 gap-1.5 text-center">
                   {CATEGORY_ORDER.map((c) => (
                     <div
@@ -445,6 +468,45 @@ function LeaderDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!assignMapFor} onOpenChange={(o) => !o && setAssignMapFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {assignMapFor?.name} <span className="text-xs font-mono text-muted-foreground">코드 {assignMapFor?.code}</span> — 조 선택
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+            {teamNames.map((t) => {
+              const p = pendingByTeam.get(t.name);
+              const pMap = p ? mapById.get(p.map_id) : null;
+              const alreadyThis = pMap && assignMapFor && pMap.id === assignMapFor.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => assignMapFor && assignMap(t.name, assignMapFor.id)}
+                  className="w-full text-left border rounded-lg p-3 hover:bg-accent transition flex items-center justify-between gap-2"
+                >
+                  <div className="font-semibold text-sm">{t.name}</div>
+                  {pMap && (
+                    <div className={`text-[11px] ${alreadyThis ? "text-status-done" : "text-primary"}`}>
+                      {alreadyThis ? "이미 이 지도 배정됨" : `이미 ${pMap.name}에 배정됨`}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+            {teamNames.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                등록된 조가 없습니다. 관리자 화면에서 추가하세요.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
 
       <Dialog open={!!photoModal} onOpenChange={(o) => !o && setPhotoModal(null)}>
         <DialogContent className="sm:max-w-lg p-2 bg-black">

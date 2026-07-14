@@ -733,7 +733,7 @@ function MapPage() {
           </div>
         ) : (
           <div className="p-3 text-center text-sm text-muted-foreground">
-            {zones.some((z) => z.status === "in_progress")
+            {zones.some((z) => myActivityByZone.has(z.id))
               ? "위에서 방문중인 구역을 눌러 선택하세요."
               : "구역을 탭해 '방문중'으로 표시하면 카운터가 열립니다."}
           </div>

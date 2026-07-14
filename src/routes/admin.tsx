@@ -15,9 +15,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard, Square } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard, Square, ArrowUp, ArrowDown, Users } from "lucide-react";
 import { getMapImageUrl } from "@/lib/map-image";
 import { ZoneEditor } from "@/components/map/ZoneEditor";
+
+type TeamNameRow = { id: string; name: string; order_idx: number };
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,

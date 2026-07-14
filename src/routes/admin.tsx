@@ -369,6 +369,72 @@ function AdminPage() {
           />
         </div>
 
+        <div className="bg-card border rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            <Label className="text-sm font-semibold">조 이름 목록 (팀원 로그인 드롭다운)</Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            여기 등록된 조 이름이 메인 화면의 드롭다운과 팀장 배정 팝업에 나타납니다.
+          </p>
+          <div className="space-y-1.5">
+            {teamNames.map((t, idx) => (
+              <div key={t.id} className="flex items-center gap-1.5">
+                <Input
+                  defaultValue={t.name}
+                  onBlur={(e) => renameTeamName(t, e.target.value)}
+                  className="h-9 text-sm flex-1"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  disabled={idx === 0}
+                  onClick={() => moveTeamName(idx, -1)}
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  disabled={idx === teamNames.length - 1}
+                  onClick={() => moveTeamName(idx, 1)}
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-destructive hover:text-destructive"
+                  onClick={() => deleteTeamName(t.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Input
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addTeamName();
+                }
+              }}
+              placeholder="새 조 이름 (예: 17조)"
+              className="h-9 text-sm"
+            />
+            <Button size="sm" onClick={addTeamName} disabled={!newTeamName.trim()}>
+              <Plus className="w-4 h-4 mr-1" /> 추가
+            </Button>
+          </div>
+        </div>
+
+
+
         {maps.length === 0 && (
           <p className="text-center text-muted-foreground py-12">
             아직 지도가 없어요. "새 지도"로 추가하세요.

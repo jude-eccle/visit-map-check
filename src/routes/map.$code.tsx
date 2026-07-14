@@ -425,6 +425,14 @@ function MapPage() {
           setSavingNote(false);
           return;
         }
+        // Close all active zone_activity rows for this zone (all teams)
+        await supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from("zone_activity" as any)
+          .update({ ended_at: new Date().toISOString() } as never)
+          .eq("zone_id", zone.id)
+          .is("ended_at", null);
+        setActivity((p) => p.filter((x) => x.zone_id !== zone.id));
         const stats = zoneStats.get(zone.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
         await supabase.from("zone_completions").upsert(
           {
@@ -437,7 +445,7 @@ function MapPage() {
           },
           { onConflict: "zone_id,team_name" }
         );
-        toast.success(`${zone.name} 완료 — 팀장에게 알림 전송`);
+        toast.success(`${zone.name} 완료 (${teamName}) — 팀장에게 알림 전송`);
       } else {
         toast.success(`${zone.name} 교대 인계 기록됨`);
       }

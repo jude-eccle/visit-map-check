@@ -457,13 +457,24 @@ function MapPage() {
 
   async function revertZoneToInProgress(z: ZoneRow) {
     setConfirmRevertZone(null);
-    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "in_progress" } : x)));
-    setSelectedZoneId(z.id);
-    const { error } = await supabase.from("zones").update({ status: "in_progress" }).eq("id", z.id);
+    // Set zone back to unvisited; the team can tap again to open a fresh activity row
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "unvisited" } : x)));
+    const { error } = await supabase.from("zones").update({ status: "unvisited" }).eq("id", z.id);
     if (error) {
       toast.error("되돌리기 실패");
       setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "done" } : x)));
       return;
+    }
+    // Re-open activity for this team so the counters footer becomes available
+    const { data } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("zone_activity" as any)
+      .insert({ zone_id: z.id, map_id: z.map_id, team_name: teamName } as never)
+      .select("*")
+      .single();
+    if (data) {
+      setActivity((p) => [...p, (data as unknown) as ActivityRow]);
+      setSelectedZoneId(z.id);
     }
     await supabase.from("zone_completions").delete().eq("zone_id", z.id).eq("team_name", teamName);
   }

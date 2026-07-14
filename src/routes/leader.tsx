@@ -310,6 +310,14 @@ function LeaderDashboard() {
                     <div className="text-[10px] text-muted-foreground">완료 구역</div>
                   </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setAssignMapFor(map)}
+                >
+                  <Send className="w-3.5 h-3.5 mr-1" /> 다음 지도 배정 ({map.name})
+                </Button>
                 <div className="grid grid-cols-4 gap-1.5 text-center">
                   {CATEGORY_ORDER.map((c) => (
                     <div

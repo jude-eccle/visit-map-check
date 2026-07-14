@@ -91,6 +91,7 @@ function MapPage() {
   const [zones, setZones] = useState<ZoneRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [handoffs, setHandoffs] = useState<HandoffRow[]>([]);
+  const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);

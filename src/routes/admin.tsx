@@ -102,6 +102,73 @@ function AdminPage() {
     setPreviews(p);
     const s = await getLeaderPhone().catch(() => ({ value: "" }));
     setLeaderPhone(s?.value ?? "");
+    const { data: tn } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("team_names" as any)
+      .select("id, name, order_idx")
+      .order("order_idx");
+    setTeamNames(((tn ?? []) as unknown) as TeamNameRow[]);
+  }
+
+  async function addTeamName() {
+    const name = newTeamName.trim();
+    if (!name) return;
+    const maxOrder = teamNames.reduce((a, t) => Math.max(a, t.order_idx), 0);
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("team_names" as any)
+      .insert({ name, order_idx: maxOrder + 1 } as never);
+    if (error) {
+      if (error.code === "23505") toast.error("이미 존재하는 조 이름입니다.");
+      else toast.error("추가 실패");
+      return;
+    }
+    setNewTeamName("");
+    refresh();
+  }
+
+  async function deleteTeamName(id: string) {
+    await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("team_names" as any)
+      .delete()
+      .eq("id", id);
+    refresh();
+  }
+
+  async function renameTeamName(t: TeamNameRow, v: string) {
+    const name = v.trim();
+    if (!name || name === t.name) return;
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("team_names" as any)
+      .update({ name })
+      .eq("id", t.id);
+    if (error) {
+      if (error.code === "23505") toast.error("이미 존재하는 조 이름입니다.");
+      else toast.error("변경 실패");
+    }
+    refresh();
+  }
+
+  async function moveTeamName(idx: number, dir: -1 | 1) {
+    const j = idx + dir;
+    if (j < 0 || j >= teamNames.length) return;
+    const a = teamNames[idx];
+    const b = teamNames[j];
+    await Promise.all([
+      supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("team_names" as any)
+        .update({ order_idx: b.order_idx })
+        .eq("id", a.id),
+      supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("team_names" as any)
+        .update({ order_idx: a.order_idx })
+        .eq("id", b.id),
+    ]);
+    refresh();
   }
 
   async function saveLeaderPhone(v: string) {

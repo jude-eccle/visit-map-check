@@ -198,6 +198,26 @@ function MapPage() {
           }
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "zone_activity", filter: `map_id=eq.${map.id}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const r = payload.new as ActivityRow;
+            setActivity((p) => (p.some((x) => x.id === r.id) ? p : [...p, r]));
+          } else if (payload.eventType === "UPDATE") {
+            const r = payload.new as ActivityRow;
+            setActivity((p) => {
+              // Keep only currently-active rows in state
+              const rest = p.filter((x) => x.id !== r.id);
+              return r.ended_at == null ? [...rest, r] : rest;
+            });
+          } else if (payload.eventType === "DELETE") {
+            const r = payload.old as { id: string };
+            setActivity((p) => p.filter((x) => x.id !== r.id));
+          }
+        }
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);

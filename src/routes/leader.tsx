@@ -54,6 +54,8 @@ type HandoffRow = {
   created_at: string;
 };
 
+type TeamNameRow = { id: string; name: string; order_idx: number };
+
 function LeaderDashboard() {
   const [maps, setMaps] = useState<MapRow[]>([]);
   const [zones, setZones] = useState<ZoneRow[]>([]);
@@ -62,10 +64,14 @@ function LeaderDashboard() {
   const [completions, setCompletions] = useState<CompletionRow[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [handoffs, setHandoffs] = useState<HandoffRow[]>([]);
+  const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [photoModal, setPhotoModal] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // assignFor: legacy per-completion selector picks a map for a fixed team;
+  // assignMapFor: per-map selector picks a team for a fixed map.
   const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
+  const [assignMapFor, setAssignMapFor] = useState<MapRow | null>(null);
 
   async function refresh() {
     const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }, hRes] =

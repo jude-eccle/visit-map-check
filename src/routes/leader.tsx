@@ -105,6 +105,13 @@ function LeaderDashboard() {
     setAssignments((a ?? []) as unknown as AssignmentRow[]);
     setHandoffs((hRes.data ?? []) as HandoffRow[]);
     setLoading(false);
+    const { data: tn } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("team_names" as any)
+      .select("id, name, order_idx")
+      .order("order_idx");
+    setTeamNames(((tn ?? []) as unknown) as TeamNameRow[]);
+    setLoading(false);
   }
 
 

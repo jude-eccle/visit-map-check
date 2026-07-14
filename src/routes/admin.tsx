@@ -52,6 +52,8 @@ function AdminPage() {
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
+  const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);
+  const [newTeamName, setNewTeamName] = useState("");
 
   useEffect(() => {
     (async () => {

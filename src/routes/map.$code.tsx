@@ -125,16 +125,19 @@ function MapPage() {
       }
       setMap(m as MapRow);
       setImageUrl(await getMapImageUrl(m.image_path));
-      const [{ data: zs }, { data: es }, hRes, ph] = await Promise.all([
+      const [{ data: zs }, { data: es }, hRes, aRes, ph] = await Promise.all([
         supabase.from("zones").select("id, map_id, name, status, order_idx").eq("map_id", m.id).order("order_idx"),
         supabase.from("zone_events").select("*").eq("map_id", m.id),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from("handoffs" as any).select("*").eq("map_id", m.id).order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("zone_activity" as any).select("*").eq("map_id", m.id).is("ended_at", null)) as unknown as Promise<{ data: ActivityRow[] | null }>,
         getLeaderPhone().catch(() => ({ value: "" })),
       ]);
       setZones((zs ?? []) as ZoneRow[]);
       setEvents((es ?? []) as EventRow[]);
       setHandoffs((hRes.data ?? []) as HandoffRow[]);
+      setActivity((aRes.data ?? []) as ActivityRow[]);
       setLeaderPhone(ph?.value ?? "");
       setLoading(false);
     })();

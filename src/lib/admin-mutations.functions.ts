@@ -128,9 +128,15 @@ export const adminClearMapData = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     requireToken(data.token);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // NOTE: 새 활동 기록 테이블을 추가할 때마다 반드시 이 목록에 포함시켜야 합니다.
+    // 현재 대상: zone_events, zone_completions, support_requests, zone_activity,
+    // handoffs, assignments, zones.status 리셋
     await supabaseAdmin.from("zone_events").delete().eq("map_id", data.id);
     await supabaseAdmin.from("zone_completions").delete().eq("map_id", data.id);
     await supabaseAdmin.from("support_requests").delete().eq("map_id", data.id);
+    await supabaseAdmin.from("zone_activity").delete().eq("map_id", data.id);
+    await supabaseAdmin.from("handoffs").delete().eq("map_id", data.id);
+    await supabaseAdmin.from("assignments").delete().eq("map_id", data.id);
     await supabaseAdmin.from("zones").update({ status: "unvisited" }).eq("map_id", data.id);
     return { ok: true as const };
   });

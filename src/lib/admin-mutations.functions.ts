@@ -64,6 +64,47 @@ export const adminUpdateMap = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+export const adminUploadMapImage = createServerFn({ method: "POST" })
+  .inputValidator(
+    (d: {
+      token: string;
+      mapId: string;
+      fileBase64: string;
+      contentType: string;
+      ext: string;
+    }) => d,
+  )
+  .handler(async ({ data }) => {
+    requireToken(data.token);
+    const ext = s(data.ext, 10).replace(/[^a-zA-Z0-9]/g, "") || "jpg";
+    const contentType = s(data.contentType, 100);
+    if (!/^image\//.test(contentType)) throw new Error("이미지 파일만 업로드 가능합니다.");
+    const b64 = data.fileBase64.replace(/^data:[^;]+;base64,/, "");
+    const bytes = Buffer.from(b64, "base64");
+    if (bytes.length > 10 * 1024 * 1024) throw new Error("파일이 너무 큽니다 (10MB 이하).");
+    const path = `${data.mapId}/${Date.now()}.${ext}`;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing } = await supabaseAdmin
+      .from("maps")
+      .select("id, image_path")
+      .eq("id", data.mapId)
+      .maybeSingle();
+    if (!existing) throw new Error("지도를 찾을 수 없습니다.");
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("map-images")
+      .upload(path, bytes, { upsert: true, contentType });
+    if (upErr) throw new Error(upErr.message);
+    const { error: updErr } = await supabaseAdmin
+      .from("maps")
+      .update({ image_path: path })
+      .eq("id", data.mapId);
+    if (updErr) throw new Error(updErr.message);
+    if (existing.image_path && existing.image_path !== path) {
+      await supabaseAdmin.storage.from("map-images").remove([existing.image_path]);
+    }
+    return { ok: true as const, path };
+  });
+
 export const adminDeleteMap = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string; id: string }) => d)
   .handler(async ({ data }) => {

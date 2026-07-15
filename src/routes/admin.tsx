@@ -216,20 +216,20 @@ function AdminPage() {
 
   async function uploadImage(m: MapRow, file: File) {
     if (!token) return;
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `${m.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
-      .from("map-images")
-      .upload(path, file, { upsert: true, contentType: file.type });
-    if (error) return toast.error("업로드 실패");
+    if (file.size > 10 * 1024 * 1024) return toast.error("10MB 이하 파일만 업로드 가능합니다.");
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const buf = await file.arrayBuffer();
+    let bin = "";
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const fileBase64 = btoa(bin);
     try {
-      await adminUpdateMap({ data: { token, id: m.id, patch: { image_path: path } } });
+      await adminUploadMapImage({
+        data: { token, mapId: m.id, fileBase64, contentType: file.type || "image/jpeg", ext },
+      });
     } catch {
-      toast.error("저장 실패");
+      toast.error("업로드 실패");
       return;
-    }
-    if (m.image_path) {
-      await supabase.storage.from("map-images").remove([m.image_path]);
     }
     toast.success("이미지 업데이트 완료");
     refresh();

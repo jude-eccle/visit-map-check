@@ -95,6 +95,10 @@ export function AssignmentBanner({ teamName }: { teamName: string }) {
           <div className="font-bold text-base truncate">
             {pending.map.name} <span className="text-sm font-mono text-muted-foreground">코드 {pending.map.code}</span>
           </div>
+          {pending.map.place_name && (
+            <div className="text-sm text-foreground/80 truncate">🏷️ {pending.map.place_name}</div>
+          )}
+
         </div>
         <button
           type="button"

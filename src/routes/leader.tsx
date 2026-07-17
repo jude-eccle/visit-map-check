@@ -520,9 +520,13 @@ function LeaderDashboard() {
                 <div className="font-semibold text-sm">
                   {m.name} <span className="text-xs font-mono text-muted-foreground">코드 {m.code}</span>
                 </div>
+                {m.place_name && (
+                  <div className="text-xs text-foreground/80 mt-0.5">🏷️ {m.place_name}</div>
+                )}
                 {m.address && (
                   <div className="text-xs text-muted-foreground mt-0.5">📍 {m.address}</div>
                 )}
+
               </button>
             ))}
             {maps.length === 0 && (

@@ -48,6 +48,7 @@ type ZoneRow = {
   name: string;
   status: ZoneStatus;
   order_idx: number;
+  landmark: string | null;
 };
 
 type EventRow = {
@@ -126,7 +127,7 @@ function MapPage() {
       setMap(m as MapRow);
       setImageUrl(await getMapImageUrl(m.image_path));
       const [{ data: zs }, { data: es }, hRes, aRes, ph] = await Promise.all([
-        supabase.from("zones").select("id, map_id, name, status, order_idx").eq("map_id", m.id).order("order_idx"),
+        supabase.from("zones").select("id, map_id, name, status, order_idx, landmark").eq("map_id", m.id).order("order_idx"),
         supabase.from("zone_events").select("*").eq("map_id", m.id),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from("handoffs" as any).select("*").eq("map_id", m.id).order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
@@ -646,6 +647,11 @@ function MapPage() {
                   }}
                 >
                   <span className="font-bold text-base leading-tight">{z.name}</span>
+                  {z.landmark && (
+                    <span className="text-[10px] leading-tight opacity-90 line-clamp-2 px-0.5">
+                      {z.landmark}
+                    </span>
+                  )}
                   <span className="text-[10px] leading-tight">{meta.label}</span>
                   {ds === "in_progress" && teams.length > 0 && (
                     <span className="text-[10px] leading-tight font-medium">

@@ -153,14 +153,18 @@ export const adminClearMapData = createServerFn({ method: "POST" })
 // ============ ZONES ============
 
 export const adminCreateZone = createServerFn({ method: "POST" })
-  .inputValidator((d: { token: string; mapId: string; name: string; orderIdx: number }) => d)
+  .inputValidator(
+    (d: { token: string; mapId: string; name: string; orderIdx: number; landmark?: string }) => d,
+  )
   .handler(async ({ data }) => {
     requireToken(data.token);
     const name = s(data.name, 100);
     if (!name) throw new Error("이름 필요");
+    const landmark = data.landmark ? s(data.landmark, 200) : null;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row, error } = await supabaseAdmin
       .from("zones")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .insert({
         map_id: data.mapId,
         name,
@@ -169,11 +173,27 @@ export const adminCreateZone = createServerFn({ method: "POST" })
         y1_pct: 0,
         x2_pct: 0,
         y2_pct: 0,
-      })
-      .select("id, map_id, name, status, order_idx")
+        landmark,
+      } as any)
+      .select("id, map_id, name, status, order_idx, landmark")
       .single();
     if (error) throw new Error(error.message);
     return row;
+  });
+
+export const adminUpdateZoneLandmark = createServerFn({ method: "POST" })
+  .inputValidator((d: { token: string; id: string; landmark: string }) => d)
+  .handler(async ({ data }) => {
+    requireToken(data.token);
+    const landmark = data.landmark.trim() ? s(data.landmark, 200) : null;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("zones")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ landmark } as any)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
   });
 
 export const adminRenameZone = createServerFn({ method: "POST" })

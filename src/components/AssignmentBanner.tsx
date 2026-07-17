@@ -22,7 +22,7 @@ export function AssignmentBanner({ teamName }: { teamName: string }) {
     const { data } = await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from("assignments" as any)
-      .select("id, map_id, team_name, maps!inner(code, name, address)")
+      .select("id, map_id, team_name, maps!inner(code, name, address, place_name)")
       .eq("team_name", teamName)
       .eq("status", "pending")
       .order("assigned_at", { ascending: false })

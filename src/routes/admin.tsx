@@ -60,6 +60,8 @@ function AdminPage() {
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const [newPlaceName, setNewPlaceName] = useState("");
+
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);

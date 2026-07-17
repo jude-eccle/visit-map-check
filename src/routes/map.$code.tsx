@@ -379,16 +379,34 @@ function MapPage() {
   }
 
   async function uploadPhoto(mapId: string, zoneId: string, file: File): Promise<string | null> {
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `handoff-photos/${mapId}/${zoneId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await supabase.storage
-      .from("map-images")
-      .upload(path, file, { upsert: false, contentType: file.type });
-    if (error) {
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const buf = await file.arrayBuffer();
+      let binary = "";
+      const bytes = new Uint8Array(buf);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(
+          null,
+          Array.from(bytes.subarray(i, i + chunk)),
+        );
+      }
+      const fileBase64 = btoa(binary);
+      const { uploadHandoffPhoto } = await import("@/lib/handoff.functions");
+      const res = await uploadHandoffPhoto({
+        data: {
+          mapId,
+          zoneId,
+          fileBase64,
+          contentType: file.type || "image/jpeg",
+          ext,
+        },
+      });
+      return res.path;
+    } catch {
       toast.error("사진 업로드 실패");
       return null;
     }
-    return path;
   }
 
   async function submitNoteDialog() {

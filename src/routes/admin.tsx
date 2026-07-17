@@ -591,6 +591,14 @@ function AdminPage() {
               />
             </div>
             <div className="space-y-1">
+              <Label>장소 이름 (선택)</Label>
+              <Input
+                value={newPlaceName}
+                onChange={(e) => setNewPlaceName(e.target.value)}
+                placeholder="예: 궁촌1리 마을회관 앞"
+              />
+            </div>
+            <div className="space-y-1">
               <Label>지역 주소 (선택)</Label>
               <Input
                 value={newAddress}

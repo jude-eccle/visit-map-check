@@ -120,6 +120,7 @@ export type Database = {
           id: string
           image_path: string | null
           name: string
+          place_name: string | null
           team_memo: string
           total_houses: number
         }
@@ -130,6 +131,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           name: string
+          place_name?: string | null
           team_memo?: string
           total_houses?: number
         }
@@ -140,6 +142,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           name?: string
+          place_name?: string | null
           team_memo?: string
           total_houses?: number
         }

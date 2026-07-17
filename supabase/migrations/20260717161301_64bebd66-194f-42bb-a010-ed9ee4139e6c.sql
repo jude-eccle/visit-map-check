@@ -1,0 +1,1 @@
+ALTER TABLE public.maps ADD COLUMN IF NOT EXISTS place_name text;

@@ -9,7 +9,7 @@ type PendingAssignment = {
   id: string;
   map_id: string;
   team_name: string;
-  map: { code: string; name: string; address: string };
+  map: { code: string; name: string; address: string; place_name: string | null };
 };
 
 export function AssignmentBanner({ teamName }: { teamName: string }) {

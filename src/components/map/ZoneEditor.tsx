@@ -171,25 +171,35 @@ export function ZoneEditor({
                 </p>
               )}
               {zones.map((z, i) => (
-                <div key={z.id} className="flex items-center gap-1.5">
-                  <span className="w-6 text-xs text-muted-foreground text-right">{i + 1}.</span>
-                  <Input
-                    defaultValue={z.name}
-                    onBlur={(e) => renameZone(z, e.target.value)}
-                    className="h-8 text-sm flex-1"
-                  />
-                  <span className="text-[10px] text-muted-foreground w-10">
-                    {ZONE_STATUS_META[z.status].label}
-                  </span>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => move(z, -1)} disabled={i === 0}>
-                    <ArrowUp className="w-4 h-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => move(z, 1)} disabled={i === zones.length - 1}>
-                    <ArrowDown className="w-4 h-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => delZone(z)}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
+                <div key={z.id} className="border rounded-md p-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-6 text-xs text-muted-foreground text-right">{i + 1}.</span>
+                    <Input
+                      defaultValue={z.name}
+                      onBlur={(e) => renameZone(z, e.target.value)}
+                      className="h-8 text-sm flex-1"
+                    />
+                    <span className="text-[10px] text-muted-foreground w-10">
+                      {ZONE_STATUS_META[z.status].label}
+                    </span>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => move(z, -1)} disabled={i === 0}>
+                      <ArrowUp className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => move(z, 1)} disabled={i === zones.length - 1}>
+                      <ArrowDown className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => delZone(z)}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-1.5 pl-7">
+                    <Input
+                      defaultValue={z.landmark ?? ""}
+                      onBlur={(e) => updateLandmark(z, e.target.value)}
+                      placeholder="위치 힌트 (선택) 예: 용화W펜션 부근"
+                      className="h-8 text-xs flex-1"
+                    />
+                  </div>
                 </div>
               ))}
             </div>

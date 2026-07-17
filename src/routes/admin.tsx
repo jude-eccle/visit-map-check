@@ -282,6 +282,18 @@ function AdminPage() {
     refresh();
   }
 
+  async function updatePlaceName(m: MapRow, v: string) {
+    const place_name = v.trim();
+    if (place_name === (m.place_name ?? "") || !token) return;
+    try {
+      await adminUpdateMap({ data: { token, id: m.id, patch: { place_name } } });
+    } catch {
+      toast.error("변경 실패");
+    }
+    refresh();
+  }
+
+
   async function deleteMap(m: MapRow) {
     setConfirmDel(null);
     if (!token) return;

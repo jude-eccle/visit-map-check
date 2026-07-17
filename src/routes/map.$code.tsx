@@ -48,6 +48,7 @@ type ZoneRow = {
   name: string;
   status: ZoneStatus;
   order_idx: number;
+  landmark: string | null;
 };
 
 type EventRow = {

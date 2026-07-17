@@ -82,6 +82,17 @@ type ActivityRow = {
 
 type DialogMode = { zone: ZoneRow; kind: "complete" | "handoff" } | null;
 
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const m = Math.max(0, Math.floor(diffMs / 60000));
+  if (m < 1) return "방금 전";
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  const d = Math.floor(h / 24);
+  return `${d}일 전`;
+}
+
 function MapPage() {
   const { code } = Route.useParams();
   const navigate = useNavigate();
@@ -132,7 +143,7 @@ function MapPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from("handoffs" as any).select("*").eq("map_id", m.id).order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from("zone_activity" as any).select("*").eq("map_id", m.id).is("ended_at", null)) as unknown as Promise<{ data: ActivityRow[] | null }>,
+        (supabase.from("zone_activity" as any).select("*").eq("map_id", m.id)) as unknown as Promise<{ data: ActivityRow[] | null }>,
         getLeaderPhone().catch(() => ({ value: "" })),
       ]);
       setZones((zs ?? []) as ZoneRow[]);
@@ -209,9 +220,8 @@ function MapPage() {
           } else if (payload.eventType === "UPDATE") {
             const r = payload.new as ActivityRow;
             setActivity((p) => {
-              // Keep only currently-active rows in state
               const rest = p.filter((x) => x.id !== r.id);
-              return r.ended_at == null ? [...rest, r] : rest;
+              return [...rest, r];
             });
           } else if (payload.eventType === "DELETE") {
             const r = payload.old as { id: string };
@@ -268,10 +278,22 @@ function MapPage() {
     return m;
   }, [activity, teamName]);
 
-  // Effective display status per zone: done > in_progress (any active team) > unvisited
+  // Most recent ended activity per zone (used for "abandoned" info)
+  const lastEndedByZone = useMemo(() => {
+    const m = new Map<string, ActivityRow>();
+    for (const a of activity) {
+      if (!a.ended_at) continue;
+      const prev = m.get(a.zone_id);
+      if (!prev || new Date(a.ended_at) > new Date(prev.ended_at!)) m.set(a.zone_id, a);
+    }
+    return m;
+  }, [activity]);
+
+  // Effective display status per zone
   function displayStatus(z: ZoneRow): ZoneStatus {
     if (z.status === "done") return "done";
     if ((teamsInZone.get(z.id)?.length ?? 0) > 0) return "in_progress";
+    if (lastEndedByZone.has(z.id)) return "abandoned";
     return "unvisited";
   }
 
@@ -445,13 +467,14 @@ function MapPage() {
           return;
         }
         // Close all active zone_activity rows for this zone (all teams)
+        const nowIso = new Date().toISOString();
         await supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .from("zone_activity" as any)
-          .update({ ended_at: new Date().toISOString() } as never)
+          .update({ ended_at: nowIso } as never)
           .eq("zone_id", zone.id)
           .is("ended_at", null);
-        setActivity((p) => p.filter((x) => x.zone_id !== zone.id));
+        setActivity((p) => p.map((x) => (x.zone_id === zone.id && !x.ended_at ? { ...x, ended_at: nowIso } : x)));
         const stats = zoneStats.get(zone.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
         await supabase.from("zone_completions").upsert(
           {
@@ -465,10 +488,30 @@ function MapPage() {
           { onConflict: "zone_id,team_name" }
         );
         toast.success(`${zone.name} 완료 (${teamName}) — 팀장에게 알림 전송`);
+        closeNoteDialog();
+        // If every zone is done, return to waiting screen
+        const remaining = zones.filter((x) => x.id !== zone.id && x.status !== "done").length;
+        if (remaining === 0) {
+          navigate({ to: "/" });
+        }
+        return;
       } else {
+        // Handoff: close my own open activity for this zone, then leave the map
+        const nowIso = new Date().toISOString();
+        const mine = myActivityByZone.get(zone.id);
+        if (mine) {
+          await supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .from("zone_activity" as any)
+            .update({ ended_at: nowIso } as never)
+            .eq("id", mine.id);
+          setActivity((p) => p.map((x) => (x.id === mine.id ? { ...x, ended_at: nowIso } : x)));
+        }
         toast.success(`${zone.name} 교대 인계 기록됨`);
+        closeNoteDialog();
+        navigate({ to: "/" });
+        return;
       }
-      closeNoteDialog();
     } finally {
       setSavingNote(false);
     }
@@ -676,6 +719,15 @@ function MapPage() {
                       {teams.join(", ")}
                     </span>
                   )}
+                  {ds === "abandoned" && (() => {
+                    const last = lastEndedByZone.get(z.id);
+                    if (!last) return null;
+                    return (
+                      <span className="text-[10px] leading-tight font-medium">
+                        마지막 {last.team_name}, {timeAgo(last.ended_at!)}
+                      </span>
+                    );
+                  })()}
                   {st && st.total > 0 && (
                     <span className="text-[10px] tabular-nums opacity-80">시도 {st.total}</span>
                   )}

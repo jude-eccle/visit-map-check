@@ -267,10 +267,22 @@ function MapPage() {
     return m;
   }, [activity, teamName]);
 
-  // Effective display status per zone: done > in_progress (any active team) > unvisited
+  // Most recent ended activity per zone (used for "abandoned" info)
+  const lastEndedByZone = useMemo(() => {
+    const m = new Map<string, ActivityRow>();
+    for (const a of activity) {
+      if (!a.ended_at) continue;
+      const prev = m.get(a.zone_id);
+      if (!prev || new Date(a.ended_at) > new Date(prev.ended_at!)) m.set(a.zone_id, a);
+    }
+    return m;
+  }, [activity]);
+
+  // Effective display status per zone
   function displayStatus(z: ZoneRow): ZoneStatus {
     if (z.status === "done") return "done";
     if ((teamsInZone.get(z.id)?.length ?? 0) > 0) return "in_progress";
+    if (lastEndedByZone.has(z.id)) return "abandoned";
     return "unvisited";
   }
 

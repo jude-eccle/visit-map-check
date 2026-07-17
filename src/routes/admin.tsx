@@ -44,6 +44,7 @@ type MapRow = {
   total_houses: number;
   team_memo: string;
   address: string;
+  place_name: string;
 };
 
 const TOKEN_KEY = "admin-token-v1";

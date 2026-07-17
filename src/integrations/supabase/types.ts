@@ -337,6 +337,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          landmark: string | null
           map_id: string
           name: string
           order_idx: number
@@ -350,6 +351,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          landmark?: string | null
           map_id: string
           name?: string
           order_idx?: number
@@ -363,6 +365,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          landmark?: string | null
           map_id?: string
           name?: string
           order_idx?: number

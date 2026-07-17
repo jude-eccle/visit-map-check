@@ -76,7 +76,7 @@ function LeaderDashboard() {
   async function refresh() {
     const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }, hRes] =
       await Promise.all([
-        supabase.from("maps").select("id, code, name, address").order("code"),
+        supabase.from("maps").select("id, code, name, address, place_name").order("code"),
         supabase.from("zones").select("id, map_id, name, status"),
         supabase.from("zone_events").select("id, map_id, zone_id, category"),
         supabase

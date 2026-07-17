@@ -201,7 +201,7 @@ function AdminPage() {
     if (newName.trim().length < 1) return toast.error("지도 이름을 입력해주세요.");
     try {
       await adminCreateMap({
-        data: { token, code: newCode, name: newName.trim(), address: newAddress.trim() },
+        data: { token, code: newCode, name: newName.trim(), address: newAddress.trim(), place_name: newPlaceName.trim() },
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -213,6 +213,7 @@ function AdminPage() {
     setNewCode("");
     setNewName("");
     setNewAddress("");
+    setNewPlaceName("");
     toast.success("지도가 추가되었어요.");
     refresh();
   }

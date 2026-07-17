@@ -467,13 +467,14 @@ function MapPage() {
           return;
         }
         // Close all active zone_activity rows for this zone (all teams)
+        const nowIso = new Date().toISOString();
         await supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .from("zone_activity" as any)
-          .update({ ended_at: new Date().toISOString() } as never)
+          .update({ ended_at: nowIso } as never)
           .eq("zone_id", zone.id)
           .is("ended_at", null);
-        setActivity((p) => p.filter((x) => x.zone_id !== zone.id));
+        setActivity((p) => p.map((x) => (x.zone_id === zone.id && !x.ended_at ? { ...x, ended_at: nowIso } : x)));
         const stats = zoneStats.get(zone.id) ?? { total: 0, by: { done: 0, gift: 0, away: 0, other: 0 } };
         await supabase.from("zone_completions").upsert(
           {
@@ -487,10 +488,30 @@ function MapPage() {
           { onConflict: "zone_id,team_name" }
         );
         toast.success(`${zone.name} 완료 (${teamName}) — 팀장에게 알림 전송`);
+        closeNoteDialog();
+        // If every zone is done, return to waiting screen
+        const remaining = zones.filter((x) => x.id !== zone.id && x.status !== "done").length;
+        if (remaining === 0) {
+          navigate({ to: "/" });
+        }
+        return;
       } else {
+        // Handoff: close my own open activity for this zone, then leave the map
+        const nowIso = new Date().toISOString();
+        const mine = myActivityByZone.get(zone.id);
+        if (mine) {
+          await supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .from("zone_activity" as any)
+            .update({ ended_at: nowIso } as never)
+            .eq("id", mine.id);
+          setActivity((p) => p.map((x) => (x.id === mine.id ? { ...x, ended_at: nowIso } : x)));
+        }
         toast.success(`${zone.name} 교대 인계 기록됨`);
+        closeNoteDialog();
+        navigate({ to: "/" });
+        return;
       }
-      closeNoteDialog();
     } finally {
       setSavingNote(false);
     }

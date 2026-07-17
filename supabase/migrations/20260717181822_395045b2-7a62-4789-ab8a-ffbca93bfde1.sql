@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "public insert handoff photos" ON storage.objects;

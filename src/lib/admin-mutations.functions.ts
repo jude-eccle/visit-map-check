@@ -47,6 +47,7 @@ export const adminUpdateMap = createServerFn({ method: "POST" })
         name?: string;
         code?: string;
         address?: string;
+        place_name?: string;
         image_path?: string | null;
       };
     }) => d,
@@ -61,6 +62,7 @@ export const adminUpdateMap = createServerFn({ method: "POST" })
       patch.code = c;
     }
     if (data.patch.address !== undefined) patch.address = s(data.patch.address, 500);
+    if (data.patch.place_name !== undefined) patch.place_name = s(data.patch.place_name, 200);
     if (data.patch.image_path !== undefined) {
       patch.image_path = data.patch.image_path === null ? null : s(data.patch.image_path, 500);
     }

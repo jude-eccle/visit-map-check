@@ -647,6 +647,11 @@ function MapPage() {
                   }}
                 >
                   <span className="font-bold text-base leading-tight">{z.name}</span>
+                  {z.landmark && (
+                    <span className="text-[10px] leading-tight opacity-90 line-clamp-2 px-0.5">
+                      {z.landmark}
+                    </span>
+                  )}
                   <span className="text-[10px] leading-tight">{meta.label}</span>
                   {ds === "in_progress" && teams.length > 0 && (
                     <span className="text-[10px] leading-tight font-medium">

@@ -17,7 +17,7 @@ export const Route = createFileRoute("/leader")({
   component: LeaderDashboard,
 });
 
-type MapRow = { id: string; code: string; name: string; address: string };
+type MapRow = { id: string; code: string; name: string; address: string; place_name: string | null };
 type ZoneRow = { id: string; map_id: string; name: string; status: string };
 type EventRow = { id: string; map_id: string; zone_id: string; category: Category };
 type SupportRow = {
@@ -76,7 +76,7 @@ function LeaderDashboard() {
   async function refresh() {
     const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }, hRes] =
       await Promise.all([
-        supabase.from("maps").select("id, code, name, address").order("code"),
+        supabase.from("maps").select("id, code, name, address, place_name").order("code"),
         supabase.from("zones").select("id, map_id, name, status"),
         supabase.from("zone_events").select("id, map_id, zone_id, category"),
         supabase
@@ -325,10 +325,14 @@ function LeaderDashboard() {
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <h2 className="font-semibold text-base truncate">{map.name}</h2>
+                    {map.place_name && (
+                      <div className="text-xs text-foreground/80 truncate">🏷️ {map.place_name}</div>
+                    )}
                     <div className="text-xs text-muted-foreground">
                       코드 {map.code}
                       {map.address ? ` · 📍 ${map.address}` : ""}
                     </div>
+
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold tabular-nums">
@@ -516,9 +520,13 @@ function LeaderDashboard() {
                 <div className="font-semibold text-sm">
                   {m.name} <span className="text-xs font-mono text-muted-foreground">코드 {m.code}</span>
                 </div>
+                {m.place_name && (
+                  <div className="text-xs text-foreground/80 mt-0.5">🏷️ {m.place_name}</div>
+                )}
                 {m.address && (
                   <div className="text-xs text-muted-foreground mt-0.5">📍 {m.address}</div>
                 )}
+
               </button>
             ))}
             {maps.length === 0 && (

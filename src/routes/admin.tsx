@@ -44,6 +44,7 @@ type MapRow = {
   total_houses: number;
   team_memo: string;
   address: string;
+  place_name: string;
 };
 
 const TOKEN_KEY = "admin-token-v1";
@@ -59,6 +60,8 @@ function AdminPage() {
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const [newPlaceName, setNewPlaceName] = useState("");
+
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
@@ -198,7 +201,7 @@ function AdminPage() {
     if (newName.trim().length < 1) return toast.error("지도 이름을 입력해주세요.");
     try {
       await adminCreateMap({
-        data: { token, code: newCode, name: newName.trim(), address: newAddress.trim() },
+        data: { token, code: newCode, name: newName.trim(), address: newAddress.trim(), place_name: newPlaceName.trim() },
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -210,6 +213,7 @@ function AdminPage() {
     setNewCode("");
     setNewName("");
     setNewAddress("");
+    setNewPlaceName("");
     toast.success("지도가 추가되었어요.");
     refresh();
   }
@@ -277,6 +281,18 @@ function AdminPage() {
     }
     refresh();
   }
+
+  async function updatePlaceName(m: MapRow, v: string) {
+    const place_name = v.trim();
+    if (place_name === (m.place_name ?? "") || !token) return;
+    try {
+      await adminUpdateMap({ data: { token, id: m.id, patch: { place_name } } });
+    } catch {
+      toast.error("변경 실패");
+    }
+    refresh();
+  }
+
 
   async function deleteMap(m: MapRow) {
     setConfirmDel(null);
@@ -506,6 +522,15 @@ function AdminPage() {
               </div>
             </div>
             <div className="px-4 pb-3 space-y-1">
+              <Label className="text-xs">장소 이름 (선택)</Label>
+              <Input
+                defaultValue={m.place_name ?? ""}
+                onBlur={(e) => updatePlaceName(m, e.target.value)}
+                placeholder="예: 궁촌1리 마을회관 앞"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="px-4 pb-3 space-y-1">
               <Label className="text-xs">지역 주소 (팀원에게 안내됨)</Label>
               <Input
                 defaultValue={m.address}
@@ -514,7 +539,7 @@ function AdminPage() {
                 className="h-9 text-sm"
               />
             </div>
-            <div className="px-4 pb-3 space-y-1" />
+
 
             <div className="border-t px-3 py-2 flex flex-wrap gap-2 bg-muted/40">
               <label className="inline-flex">
@@ -563,6 +588,14 @@ function AdminPage() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="예: 삼척 근덕면"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>장소 이름 (선택)</Label>
+              <Input
+                value={newPlaceName}
+                onChange={(e) => setNewPlaceName(e.target.value)}
+                placeholder="예: 궁촌1리 마을회관 앞"
               />
             </div>
             <div className="space-y-1">

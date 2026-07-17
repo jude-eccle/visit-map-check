@@ -9,7 +9,7 @@ type PendingAssignment = {
   id: string;
   map_id: string;
   team_name: string;
-  map: { code: string; name: string; address: string };
+  map: { code: string; name: string; address: string; place_name: string | null };
 };
 
 export function AssignmentBanner({ teamName }: { teamName: string }) {
@@ -22,7 +22,7 @@ export function AssignmentBanner({ teamName }: { teamName: string }) {
     const { data } = await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from("assignments" as any)
-      .select("id, map_id, team_name, maps!inner(code, name, address)")
+      .select("id, map_id, team_name, maps!inner(code, name, address, place_name)")
       .eq("team_name", teamName)
       .eq("status", "pending")
       .order("assigned_at", { ascending: false })
@@ -95,6 +95,10 @@ export function AssignmentBanner({ teamName }: { teamName: string }) {
           <div className="font-bold text-base truncate">
             {pending.map.name} <span className="text-sm font-mono text-muted-foreground">코드 {pending.map.code}</span>
           </div>
+          {pending.map.place_name && (
+            <div className="text-sm text-foreground/80 truncate">🏷️ {pending.map.place_name}</div>
+          )}
+
         </div>
         <button
           type="button"

@@ -17,7 +17,9 @@ function s(v: unknown, max = 500): string {
 // ============ MAPS ============
 
 export const adminCreateMap = createServerFn({ method: "POST" })
-  .inputValidator((d: { token: string; code: string; name: string; address: string }) => d)
+  .inputValidator(
+    (d: { token: string; code: string; name: string; address: string; place_name?: string }) => d,
+  )
   .handler(async ({ data }) => {
     requireToken(data.token);
     const code = s(data.code, 4);
@@ -25,11 +27,16 @@ export const adminCreateMap = createServerFn({ method: "POST" })
     const name = s(data.name, 200);
     if (!name) throw new Error("이름 필요");
     const address = s(data.address, 500);
+    const place_name = data.place_name ? s(data.place_name, 200) : "";
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("maps").insert({ code, name, address });
+    const { error } = await supabaseAdmin
+      .from("maps")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert({ code, name, address, place_name } as any);
     if (error) throw new Error(error.code === "23505" ? "duplicate_code" : error.message);
     return { ok: true as const };
   });
+
 
 export const adminUpdateMap = createServerFn({ method: "POST" })
   .inputValidator(
@@ -40,6 +47,7 @@ export const adminUpdateMap = createServerFn({ method: "POST" })
         name?: string;
         code?: string;
         address?: string;
+        place_name?: string;
         image_path?: string | null;
       };
     }) => d,
@@ -54,6 +62,7 @@ export const adminUpdateMap = createServerFn({ method: "POST" })
       patch.code = c;
     }
     if (data.patch.address !== undefined) patch.address = s(data.patch.address, 500);
+    if (data.patch.place_name !== undefined) patch.place_name = s(data.patch.place_name, 200);
     if (data.patch.image_path !== undefined) {
       patch.image_path = data.patch.image_path === null ? null : s(data.patch.image_path, 500);
     }

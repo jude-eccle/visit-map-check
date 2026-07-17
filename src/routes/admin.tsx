@@ -522,6 +522,15 @@ function AdminPage() {
               </div>
             </div>
             <div className="px-4 pb-3 space-y-1">
+              <Label className="text-xs">장소 이름 (선택)</Label>
+              <Input
+                defaultValue={m.place_name ?? ""}
+                onBlur={(e) => updatePlaceName(m, e.target.value)}
+                placeholder="예: 궁촌1리 마을회관 앞"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="px-4 pb-3 space-y-1">
               <Label className="text-xs">지역 주소 (팀원에게 안내됨)</Label>
               <Input
                 defaultValue={m.address}
@@ -530,7 +539,7 @@ function AdminPage() {
                 className="h-9 text-sm"
               />
             </div>
-            <div className="px-4 pb-3 space-y-1" />
+
 
             <div className="border-t px-3 py-2 flex flex-wrap gap-2 bg-muted/40">
               <label className="inline-flex">

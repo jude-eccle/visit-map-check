@@ -23,7 +23,7 @@ type PendingAssignment = {
   id: string;
   map_id: string;
   status: "pending" | "acknowledged";
-  map: { code: string; name: string; address: string };
+  map: { code: string; name: string; address: string; place_name: string | null };
 };
 
 function Index() {
@@ -57,7 +57,7 @@ function Index() {
     const { data } = await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from("assignments" as any)
-      .select("id, map_id, status, maps!inner(code, name, address)")
+      .select("id, map_id, status, maps!inner(code, name, address, place_name)")
       .eq("team_name", name)
       .in("status", ["pending", "acknowledged"])
       .order("assigned_at", { ascending: false })
@@ -219,6 +219,9 @@ function Index() {
                       <span className="text-sm font-mono text-muted-foreground">
                         코드 {pending.map.code}
                       </span>
+                      {pending.map.place_name && (
+                        <span className="text-sm text-foreground/80"> · {pending.map.place_name}</span>
+                      )}
                     </div>
                   </div>
                 </div>

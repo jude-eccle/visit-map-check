@@ -49,13 +49,25 @@ export function ZoneEditor({
       setLoading(true);
       const { data } = await supabase
         .from("zones")
-        .select("id, map_id, name, status, order_idx")
+        .select("id, map_id, name, status, order_idx, landmark")
         .eq("map_id", mapId)
         .order("order_idx");
       setZones((data ?? []) as ZoneRow[]);
       setLoading(false);
     })();
   }, [open, mapId]);
+
+  async function updateLandmark(z: ZoneRow, v: string) {
+    const val = v.trim();
+    if (val === (z.landmark ?? "")) return;
+    try {
+      await adminUpdateZoneLandmark({ data: { token, id: z.id, landmark: val } });
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, landmark: val || null } : x)));
+    } catch {
+      toast.error("위치 힌트 저장 실패");
+    }
+  }
+
 
   async function addZone() {
     const nextIdx = zones.length;

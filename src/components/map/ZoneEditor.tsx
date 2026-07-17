@@ -6,6 +6,7 @@ import {
   adminRenameZone,
   adminResetZoneStatuses,
   adminSwapZoneOrder,
+  adminUpdateZoneLandmark,
 } from "@/lib/admin-mutations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,9 @@ type ZoneRow = {
   name: string;
   status: ZoneStatus;
   order_idx: number;
+  landmark: string | null;
 };
+
 
 export function ZoneEditor({
   mapId,

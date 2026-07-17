@@ -23,7 +23,7 @@ type PendingAssignment = {
   id: string;
   map_id: string;
   status: "pending" | "acknowledged";
-  map: { code: string; name: string; address: string };
+  map: { code: string; name: string; address: string; place_name: string | null };
 };
 
 function Index() {

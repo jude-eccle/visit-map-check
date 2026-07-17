@@ -17,7 +17,7 @@ export const Route = createFileRoute("/leader")({
   component: LeaderDashboard,
 });
 
-type MapRow = { id: string; code: string; name: string; address: string };
+type MapRow = { id: string; code: string; name: string; address: string; place_name: string | null };
 type ZoneRow = { id: string; map_id: string; name: string; status: string };
 type EventRow = { id: string; map_id: string; zone_id: string; category: Category };
 type SupportRow = {

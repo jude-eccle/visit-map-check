@@ -698,6 +698,15 @@ function MapPage() {
                       {teams.join(", ")}
                     </span>
                   )}
+                  {ds === "abandoned" && (() => {
+                    const last = lastEndedByZone.get(z.id);
+                    if (!last) return null;
+                    return (
+                      <span className="text-[10px] leading-tight font-medium">
+                        마지막 {last.team_name}, {timeAgo(last.ended_at!)}
+                      </span>
+                    );
+                  })()}
                   {st && st.total > 0 && (
                     <span className="text-[10px] tabular-nums opacity-80">시도 {st.total}</span>
                   )}

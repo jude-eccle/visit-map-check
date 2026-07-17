@@ -219,6 +219,9 @@ function Index() {
                       <span className="text-sm font-mono text-muted-foreground">
                         코드 {pending.map.code}
                       </span>
+                      {pending.map.place_name && (
+                        <span className="text-sm text-foreground/80"> · {pending.map.place_name}</span>
+                      )}
                     </div>
                   </div>
                 </div>

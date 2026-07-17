@@ -132,7 +132,7 @@ function MapPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from("handoffs" as any).select("*").eq("map_id", m.id).order("created_at", { ascending: false })) as unknown as Promise<{ data: HandoffRow[] | null }>,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from("zone_activity" as any).select("*").eq("map_id", m.id).is("ended_at", null)) as unknown as Promise<{ data: ActivityRow[] | null }>,
+        (supabase.from("zone_activity" as any).select("*").eq("map_id", m.id)) as unknown as Promise<{ data: ActivityRow[] | null }>,
         getLeaderPhone().catch(() => ({ value: "" })),
       ]);
       setZones((zs ?? []) as ZoneRow[]);

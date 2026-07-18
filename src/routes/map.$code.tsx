@@ -117,7 +117,7 @@ function MapPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
-  const [decisionPrompt, setDecisionPrompt] = useState<{ eventId: string } | null>(null);
+  const [decisionPrompt, setDecisionPrompt] = useState<{ eventId: string; finish: (v: boolean | null) => void } | null>(null);
   const decisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -567,10 +567,13 @@ function MapPage() {
         await supabase.from("zone_events").delete().eq("id", id);
       }
     };
-    toast(`+1 ${CATEGORY_META[cat].label}`, {
-      duration: 5000,
-      action: { label: "되돌리기", onClick: undo },
-    });
+    const showSaveToast = () => {
+      toast(`+1 ${CATEGORY_META[cat].label}`, {
+        duration: 5000,
+        action: { label: "되돌리기", onClick: undo },
+      });
+    };
+    if (cat !== "done") showSaveToast();
     const { data, error } = await supabase
       .from("zone_events")
       .insert({
@@ -594,18 +597,17 @@ function MapPage() {
     setEvents((p) => p.map((e) => (e.id === tempId ? (data as EventRow) : e)));
     if (cat === "done" && !undone) {
       if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
-      setDecisionPrompt({ eventId: data.id });
-      decisionTimerRef.current = setTimeout(() => setDecisionPrompt(null), 8000);
+      const eventId = data.id;
+      const finish = (value: boolean | null) => {
+        if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
+        setDecisionPrompt(null);
+        if (value !== null) {
+          void supabase.from("zone_events").update({ decided: value } as never).eq("id", eventId);
+        }
+        showSaveToast();
+      };
+      setDecisionPrompt({ eventId, finish });
     }
-  }
-
-  async function answerDecision(value: boolean | null) {
-    const p = decisionPrompt;
-    setDecisionPrompt(null);
-    if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
-    if (!p) return;
-    if (value === null) return; // skip
-    await supabase.from("zone_events").update({ decided: value } as never).eq("id", p.eventId);
   }
 
 
@@ -809,29 +811,39 @@ function MapPage() {
               })}
             </div>
             {decisionPrompt && (
-              <div className="rounded-lg border border-status-done/40 bg-status-done/10 px-3 py-2 flex items-center gap-2 text-sm">
-                <span className="font-medium flex-1">결신하셨나요?</span>
-                <button
-                  type="button"
-                  onClick={() => answerDecision(true)}
-                  className="px-2.5 py-1 rounded-md bg-status-done text-white text-xs font-semibold"
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+                onClick={() => decisionPrompt.finish(null)}
+              >
+                <div
+                  className="w-full max-w-xs rounded-2xl bg-card shadow-2xl p-5 space-y-4"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  예
-                </button>
-                <button
-                  type="button"
-                  onClick={() => answerDecision(false)}
-                  className="px-2.5 py-1 rounded-md border bg-card text-xs font-semibold"
-                >
-                  아니오
-                </button>
-                <button
-                  type="button"
-                  onClick={() => answerDecision(null)}
-                  className="px-2 py-1 text-xs text-muted-foreground"
-                >
-                  건너뛰기
-                </button>
+                  <div className="text-center text-base font-semibold">결신하셨나요?</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => decisionPrompt.finish(true)}
+                      className="h-12 rounded-lg bg-status-done text-white text-base font-bold active:scale-[0.98] transition"
+                    >
+                      예
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => decisionPrompt.finish(false)}
+                      className="h-12 rounded-lg border-2 bg-card text-base font-bold active:scale-[0.98] transition"
+                    >
+                      아니오
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => decisionPrompt.finish(null)}
+                    className="w-full h-10 text-sm text-muted-foreground"
+                  >
+                    건너뛰기
+                  </button>
+                </div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">

@@ -954,15 +954,27 @@ function MapPage() {
                 }}
               />
               {notePhotoPreview ? (
-                <div className="relative inline-block">
-                  <img src={notePhotoPreview} alt="" className="w-32 h-32 object-cover rounded border" />
-                  <button
+                <div className="space-y-2">
+                  <div className="relative inline-block">
+                    <img src={notePhotoPreview} alt="" className="w-32 h-32 object-cover rounded border" />
+                    <button
+                      type="button"
+                      onClick={() => selectPhoto(null)}
+                      className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1"
+                      aria-label="사진 삭제"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <Button
                     type="button"
-                    onClick={() => selectPhoto(null)}
-                    className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full"
                   >
-                    <X className="w-3 h-3" />
-                  </button>
+                    <Camera className="w-4 h-4 mr-1" /> 다시 찍기
+                  </Button>
                 </div>
               ) : (
                 <Button
@@ -981,8 +993,61 @@ function MapPage() {
             <Button variant="outline" onClick={closeNoteDialog} disabled={savingNote}>
               취소
             </Button>
-            <Button onClick={submitNoteDialog} disabled={savingNote}>
+            <Button onClick={() => setConfirmSaveOpen(true)} disabled={savingNote}>
               {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : "저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pre-save confirmation */}
+      <Dialog open={confirmSaveOpen} onOpenChange={(o) => !savingNote && setConfirmSaveOpen(o)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>이 내용으로 저장하시겠습니까?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {notePhotoPreview && (
+              <img src={notePhotoPreview} alt="" className="w-full max-h-48 object-contain rounded border bg-muted" />
+            )}
+            <div className="text-sm whitespace-pre-wrap rounded border p-2 bg-muted/40 min-h-[3rem]">
+              {noteText.trim() || <span className="text-muted-foreground">(메모 없음)</span>}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmSaveOpen(false)} disabled={savingNote}>
+              아니오, 다시 확인
+            </Button>
+            <Button
+              onClick={async () => {
+                setConfirmSaveOpen(false);
+                await submitNoteDialog();
+              }}
+              disabled={savingNote}
+            >
+              {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : "예, 저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Post-save exit prompt */}
+      <Dialog open={postSaveOpen} onOpenChange={setPostSaveOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>저장되었습니다. 나가시겠습니까?</DialogTitle>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPostSaveOpen(false)}>
+              아니오, 여기 남기
+            </Button>
+            <Button
+              onClick={() => {
+                setPostSaveOpen(false);
+                navigate({ to: "/" });
+              }}
+            >
+              예, 나가기
             </Button>
           </DialogFooter>
         </DialogContent>

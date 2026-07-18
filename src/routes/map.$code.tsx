@@ -117,7 +117,7 @@ function MapPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
-  const [decisionPrompt, setDecisionPrompt] = useState<{ eventId: string } | null>(null);
+  const [decisionPrompt, setDecisionPrompt] = useState<{ eventId: string; finish: (v: boolean | null) => void } | null>(null);
   const decisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 

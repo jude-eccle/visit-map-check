@@ -306,6 +306,11 @@ function LeaderDashboard() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-3">
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={downloadExcel} disabled={exportLoading}>
+            {exportLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : "📊"} 전체 결과 엑셀 다운로드
+          </Button>
+        </div>
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />

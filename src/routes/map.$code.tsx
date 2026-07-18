@@ -875,7 +875,7 @@ function MapPage() {
             <Phone className="w-4 h-4 mr-1" /> 📞 팀장님께 전화
           </Button>
           <Button variant="outline" className="h-11 text-sm" onClick={handleLeaveMap}>
-            <ArrowLeft className="w-4 h-4 mr-1" /> 다른 지도
+            <ArrowLeft className="w-4 h-4 mr-1" /> 나가기
           </Button>
         </div>
       </footer>

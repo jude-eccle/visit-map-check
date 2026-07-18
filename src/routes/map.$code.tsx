@@ -592,7 +592,20 @@ function MapPage() {
     }
     currentId = data.id;
     setEvents((p) => p.map((e) => (e.id === tempId ? (data as EventRow) : e)));
+    if (cat === "done" && !undone) {
+      if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
+      setDecisionPrompt({ eventId: data.id });
+      decisionTimerRef.current = setTimeout(() => setDecisionPrompt(null), 8000);
+    }
   }
+
+  async function answerDecision(value: boolean | null) {
+    const p = decisionPrompt;
+    setDecisionPrompt(null);
+    if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
+    if (!p) return;
+    if (value === null) return; // skip
+    await supabase.from("zone_events").update({ decided: value } as never).eq("id", p.eventId);
 
   function callLeader() {
     const digits = leaderPhone.replace(/[^\d+]/g, "");

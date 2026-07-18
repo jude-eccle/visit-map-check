@@ -584,6 +584,9 @@ function AdminPage() {
               <Button variant="outline" size="sm" onClick={() => setEditingZones(m)}>
                 <Square className="w-4 h-4 mr-1" /> 구역 설정
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setManualFor(m)}>
+                📝 수기 기록 추가
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setConfirmClear(m)}>
                 기록 초기화
               </Button>

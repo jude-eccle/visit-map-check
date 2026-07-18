@@ -115,6 +115,8 @@ function MapPage() {
   const [notePhoto, setNotePhoto] = useState<File | null>(null);
   const [notePhotoPreview, setNotePhotoPreview] = useState<string | null>(null);
   const [savingNote, setSavingNote] = useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [postSaveOpen, setPostSaveOpen] = useState(false);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [decisionPrompt, setDecisionPrompt] = useState<{ eventId: string; finish: (v: boolean | null) => void } | null>(null);

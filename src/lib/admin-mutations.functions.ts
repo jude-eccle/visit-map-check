@@ -180,6 +180,62 @@ export const adminResetAll = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+// ============ MANUAL RECORDS ============
+
+export const adminAddManualRecord = createServerFn({ method: "POST" })
+  .inputValidator(
+    (d: {
+      token: string;
+      mapId: string;
+      teamName?: string;
+      done: number;
+      decided: number;
+      gift: number;
+      away: number;
+      other: number;
+      note?: string;
+    }) => d,
+  )
+  .handler(async ({ data }) => {
+    requireToken(data.token);
+    const clamp = (n: unknown) => {
+      const v = typeof n === "number" ? Math.floor(n) : 0;
+      if (!Number.isFinite(v) || v < 0) return 0;
+      if (v > 9999) return 9999;
+      return v;
+    };
+    const done = clamp(data.done);
+    const decided = Math.min(clamp(data.decided), done);
+    const gift = clamp(data.gift);
+    const away = clamp(data.away);
+    const other = clamp(data.other);
+    const team = (data.teamName?.trim() || "수기입력").slice(0, 50);
+    const note = data.note ? s(data.note, 1000) : null;
+    if (done + gift + away + other === 0) throw new Error("최소 하나 이상 입력하세요.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const rows: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < done; i++)
+      rows.push({
+        map_id: data.mapId,
+        zone_id: null,
+        team_name: team,
+        category: "done",
+        source: "manual",
+        decided: i < decided ? true : false,
+        note: i === 0 ? note : null,
+      });
+    for (let i = 0; i < gift; i++)
+      rows.push({ map_id: data.mapId, zone_id: null, team_name: team, category: "gift", source: "manual", note: done === 0 && i === 0 ? note : null });
+    for (let i = 0; i < away; i++)
+      rows.push({ map_id: data.mapId, zone_id: null, team_name: team, category: "away", source: "manual", note: done + gift === 0 && i === 0 ? note : null });
+    for (let i = 0; i < other; i++)
+      rows.push({ map_id: data.mapId, zone_id: null, team_name: team, category: "other", source: "manual", note: done + gift + away === 0 && i === 0 ? note : null });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabaseAdmin.from("zone_events").insert(rows as any);
+    if (error) throw new Error(error.message);
+    return { ok: true as const, count: rows.length };
+  });
+
 // ============ ZONES ============
 
 export const adminCreateZone = createServerFn({ method: "POST" })

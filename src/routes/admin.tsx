@@ -65,6 +65,9 @@ function AdminPage() {
 
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
+  const [resetAllOpen, setResetAllOpen] = useState(false);
+  const [resetAllText, setResetAllText] = useState("");
+  const [resetAllLoading, setResetAllLoading] = useState(false);
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
   const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);

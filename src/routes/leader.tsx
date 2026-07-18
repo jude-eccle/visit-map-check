@@ -72,6 +72,84 @@ function LeaderDashboard() {
   // assignMapFor: per-map selector picks a team for a fixed map.
   const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
   const [assignMapFor, setAssignMapFor] = useState<MapRow | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  async function downloadExcel() {
+    setExportLoading(true);
+    try {
+      const [xlsx, detailRes] = await Promise.all([
+        import("xlsx"),
+        supabase
+          .from("zone_events")
+          .select("id, map_id, zone_id, category, team_name, decided, source, created_at")
+          .order("created_at", { ascending: true }),
+      ]);
+      const details = (detailRes.data ?? []) as Array<{
+        id: string;
+        map_id: string;
+        zone_id: string | null;
+        category: Category;
+        team_name: string;
+        decided: boolean | null;
+        source: string | null;
+        created_at: string;
+      }>;
+      const mapById = new Map(maps.map((m) => [m.id, m]));
+      const zoneName = (id: string | null) => (id ? zoneNameById.get(id) ?? "-" : "(수기)");
+      const catLabel = (c: Category) => CATEGORY_META[c]?.label ?? c;
+      const summaryRows: Array<Record<string, string | number>> = [];
+      let tTot = 0, tDone = 0, tDec = 0, tGift = 0, tAway = 0, tOther = 0, tZoneDone = 0, tZoneAll = 0;
+      for (const m of maps) {
+        const rows = details.filter((d) => d.map_id === m.id);
+        const done = rows.filter((r) => r.category === "done").length;
+        const decided = rows.filter((r) => r.category === "done" && r.decided === true).length;
+        const gift = rows.filter((r) => r.category === "gift").length;
+        const away = rows.filter((r) => r.category === "away").length;
+        const other = rows.filter((r) => r.category === "other").length;
+        const st = stats.get(m.id);
+        const zoneAll = st?.totalZones ?? 0;
+        const zoneDone = st?.doneZones ?? 0;
+        summaryRows.push({
+          지도명: m.name,
+          코드: m.code,
+          "장소 이름": m.place_name ?? "",
+          "총 방문 시도": rows.length,
+          "복음 전달 완료": done,
+          "그 중 결신": decided,
+          "선물만 전달": gift,
+          부재중: away,
+          기타: other,
+          "완료 구역": `${zoneDone}/${zoneAll}`,
+        });
+        tTot += rows.length; tDone += done; tDec += decided; tGift += gift; tAway += away; tOther += other;
+        tZoneDone += zoneDone; tZoneAll += zoneAll;
+      }
+      summaryRows.push({
+        지도명: "합계", 코드: "", "장소 이름": "",
+        "총 방문 시도": tTot, "복음 전달 완료": tDone, "그 중 결신": tDec,
+        "선물만 전달": tGift, 부재중: tAway, 기타: tOther,
+        "완료 구역": `${tZoneDone}/${tZoneAll}`,
+      });
+      const detailRows = details.map((d) => ({
+        지도명: mapById.get(d.map_id)?.name ?? "",
+        구역명: zoneName(d.zone_id),
+        "조 이름": d.team_name,
+        상태: catLabel(d.category),
+        "결신 여부": d.category === "done" ? (d.decided === true ? "결신" : d.decided === false ? "비결신" : "미응답") : "",
+        "기록 방식": d.source === "manual" ? "수기" : "앱",
+        시각: new Date(d.created_at).toLocaleString("ko-KR"),
+      }));
+      const wb = xlsx.utils.book_new();
+      xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(summaryRows), "요약");
+      xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(detailRows), "상세");
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+      xlsx.writeFile(wb, `전체결과_${stamp}.xlsx`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "다운로드 실패");
+    } finally {
+      setExportLoading(false);
+    }
+  }
 
   async function refresh() {
     const [{ data: m }, { data: z }, { data: e }, { data: s }, { data: c }, { data: a }, hRes] =

@@ -857,7 +857,7 @@ function MapPage() {
               <Button
                 onClick={() => openNoteDialog(selectedZone, "complete")}
                 className="h-12 text-base font-bold"
-                style={{ backgroundColor: ZONE_STATUS_META.done.color, color: "white" }}
+                style={{ backgroundColor: "#0F6E56", color: "white" }}
               >
                 <CheckCircle2 className="w-5 h-5 mr-1" /> 이 구역 완료
               </Button>

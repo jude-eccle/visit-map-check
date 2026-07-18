@@ -8,6 +8,7 @@ import {
   adminUpdateMap,
   adminDeleteMap,
   adminClearMapData,
+  adminResetAll,
   adminUploadMapImage,
   adminCreateTeamName,
   adminRenameTeamName,

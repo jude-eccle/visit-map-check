@@ -14,6 +14,7 @@ import {
   adminRenameTeamName,
   adminDeleteTeamName,
   adminSwapTeamOrder,
+  adminAddManualRecord,
 } from "@/lib/admin-mutations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

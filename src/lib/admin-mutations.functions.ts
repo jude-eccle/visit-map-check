@@ -150,6 +150,36 @@ export const adminClearMapData = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+export const adminResetAll = createServerFn({ method: "POST" })
+  .inputValidator((d: { token: string; confirm: string }) => d)
+  .handler(async ({ data }) => {
+    requireToken(data.token);
+    if (data.confirm !== "초기화") throw new Error("확인 문구가 일치하지 않습니다.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // 기록성 테이블만 전부 비움 (maps/zones/team_names 유지)
+    const tables = [
+      "zone_events",
+      "zone_completions",
+      "zone_activity",
+      "handoffs",
+      "assignments",
+      "support_requests",
+    ] as const;
+    for (const t of tables) {
+      const { error } = await supabaseAdmin
+        .from(t)
+        .delete()
+        .not("id", "is", null);
+      if (error) throw new Error(`${t}: ${error.message}`);
+    }
+    const { error: zErr } = await supabaseAdmin
+      .from("zones")
+      .update({ status: "unvisited" })
+      .not("id", "is", null);
+    if (zErr) throw new Error(zErr.message);
+    return { ok: true as const };
+  });
+
 // ============ ZONES ============
 
 export const adminCreateZone = createServerFn({ method: "POST" })

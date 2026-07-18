@@ -8,6 +8,7 @@ import {
   adminUpdateMap,
   adminDeleteMap,
   adminClearMapData,
+  adminResetAll,
   adminUploadMapImage,
   adminCreateTeamName,
   adminRenameTeamName,
@@ -64,6 +65,9 @@ function AdminPage() {
 
   const [confirmDel, setConfirmDel] = useState<MapRow | null>(null);
   const [confirmClear, setConfirmClear] = useState<MapRow | null>(null);
+  const [resetAllOpen, setResetAllOpen] = useState(false);
+  const [resetAllText, setResetAllText] = useState("");
+  const [resetAllLoading, setResetAllLoading] = useState(false);
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
   const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);
@@ -397,6 +401,25 @@ function AdminPage() {
       </header>
 
       <main className="max-w-3xl mx-auto p-3 sm:p-4 space-y-3">
+        <div className="border-2 border-destructive/60 bg-destructive/5 rounded-xl p-3 sm:p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-destructive">⚠️ 전체 기록 초기화</div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              모든 지도의 방문 기록·구역 상태·배정 내역을 한 번에 삭제합니다. (지도·구역·조 이름은 유지)
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="shrink-0"
+            onClick={() => {
+              setResetAllText("");
+              setResetAllOpen(true);
+            }}
+          >
+            전체 초기화
+          </Button>
+        </div>
         <div className="bg-card border rounded-xl p-4 space-y-2">
           <Label className="text-sm font-semibold">📞 팀장 전화번호 (전체 공통)</Label>
           <p className="text-xs text-muted-foreground">
@@ -662,6 +685,53 @@ function AdminPage() {
               onClick={() => confirmClear && clearData(confirmClear)}
             >
               초기화
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetAllOpen} onOpenChange={(o) => !o && !resetAllLoading && setResetAllOpen(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">⚠️ 전체 기록 초기화</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm">
+              정말 전체 초기화하시겠습니까? 모든 지도의 방문 기록·구역 상태·배정 내역이 삭제되며 되돌릴 수 없습니다.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              확인을 위해 아래에 <span className="font-semibold text-foreground">초기화</span> 라고 입력해주세요.
+            </p>
+            <Input
+              value={resetAllText}
+              onChange={(e) => setResetAllText(e.target.value)}
+              placeholder="초기화"
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResetAllOpen(false)} disabled={resetAllLoading}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={resetAllText.trim() !== "초기화" || resetAllLoading || !token}
+              onClick={async () => {
+                if (!token) return;
+                setResetAllLoading(true);
+                try {
+                  await adminResetAll({ data: { token, confirm: "초기화" } });
+                  toast.success("전체 초기화되었습니다");
+                  setResetAllOpen(false);
+                  setResetAllText("");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "초기화 실패");
+                } finally {
+                  setResetAllLoading(false);
+                }
+              }}
+            >
+              {resetAllLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "전체 초기화"}
             </Button>
           </DialogFooter>
         </DialogContent>

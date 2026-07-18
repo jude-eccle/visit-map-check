@@ -569,7 +569,7 @@ function MapPage() {
     };
     const showSaveToast = () => {
       toast(`+1 ${CATEGORY_META[cat].label}`, {
-        duration: 5000,
+        duration: 30000,
         action: { label: "되돌리기", onClick: undo },
       });
     };

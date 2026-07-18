@@ -327,7 +327,31 @@ function AdminPage() {
     toast.success("이 지도의 카운터·알림을 초기화했어요.");
   }
 
-  function signOut() {
+  async function submitManual() {
+    if (!token || !manualFor) return;
+    setManualLoading(true);
+    try {
+      await adminAddManualRecord({
+        data: {
+          token,
+          mapId: manualFor.id,
+          teamName: manualForm.team.trim() || "수기입력",
+          done: Number(manualForm.done) || 0,
+          decided: Number(manualForm.decided) || 0,
+          gift: Number(manualForm.gift) || 0,
+          away: Number(manualForm.away) || 0,
+          other: Number(manualForm.other) || 0,
+          note: manualForm.note.trim(),
+        },
+      });
+      toast.success("수기 기록이 추가되었어요.");
+      setManualFor(null);
+      setManualForm({ team: "수기입력", done: 0, decided: 0, gift: 0, away: 0, other: 0, note: "" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "추가 실패");
+    } finally {
+      setManualLoading(false);
+    }
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setEntry("");

@@ -493,14 +493,10 @@ function MapPage() {
         );
         toast.success(`${zone.name} 완료 (${teamName}) — 팀장에게 알림 전송`);
         closeNoteDialog();
-        // If every zone is done, return to waiting screen
-        const remaining = zones.filter((x) => x.id !== zone.id && x.status !== "done").length;
-        if (remaining === 0) {
-          navigate({ to: "/" });
-        }
+        setPostSaveOpen(true);
         return;
       } else {
-        // Handoff: close my own open activity for this zone, then leave the map
+        // Handoff: close my own open activity for this zone
         const nowIso = new Date().toISOString();
         const mine = myActivityByZone.get(zone.id);
         if (mine) {
@@ -513,7 +509,7 @@ function MapPage() {
         }
         toast.success(`${zone.name} 교대 인계 기록됨`);
         closeNoteDialog();
-        navigate({ to: "/" });
+        setPostSaveOpen(true);
         return;
       }
     } finally {

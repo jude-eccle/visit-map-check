@@ -24,7 +24,7 @@ export const CATEGORY_META: Record<
 > = {
   done: { label: "복음 전달 완료", short: "복음", color: "#2F8F5B" },
   gift: { label: "선물만 전달", short: "선물", color: "#E29B3E" },
-  away: { label: "부재중", short: "부재", color: "#566274" },
+  away: { label: "부재중", short: "부재", color: "#6B6F76" },
   other: { label: "기타 (재방문 자제 등)", short: "기타", color: "#B3434F" },
 };
 

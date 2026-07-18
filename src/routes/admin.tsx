@@ -14,6 +14,7 @@ import {
   adminRenameTeamName,
   adminDeleteTeamName,
   adminSwapTeamOrder,
+  adminAddManualRecord,
 } from "@/lib/admin-mutations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,9 @@ function AdminPage() {
   const [leaderPhone, setLeaderPhone] = useState("");
   const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);
   const [newTeamName, setNewTeamName] = useState("");
+  const [manualFor, setManualFor] = useState<MapRow | null>(null);
+  const [manualForm, setManualForm] = useState({ team: "수기입력", done: 0, decided: 0, gift: 0, away: 0, other: 0, note: "" });
+  const [manualLoading, setManualLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -321,6 +325,33 @@ function AdminPage() {
       return;
     }
     toast.success("이 지도의 카운터·알림을 초기화했어요.");
+  }
+
+  async function submitManual() {
+    if (!token || !manualFor) return;
+    setManualLoading(true);
+    try {
+      await adminAddManualRecord({
+        data: {
+          token,
+          mapId: manualFor.id,
+          teamName: manualForm.team.trim() || "수기입력",
+          done: Number(manualForm.done) || 0,
+          decided: Number(manualForm.decided) || 0,
+          gift: Number(manualForm.gift) || 0,
+          away: Number(manualForm.away) || 0,
+          other: Number(manualForm.other) || 0,
+          note: manualForm.note.trim(),
+        },
+      });
+      toast.success("수기 기록이 추가되었어요.");
+      setManualFor(null);
+      setManualForm({ team: "수기입력", done: 0, decided: 0, gift: 0, away: 0, other: 0, note: "" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "추가 실패");
+    } finally {
+      setManualLoading(false);
+    }
   }
 
   function signOut() {
@@ -583,6 +614,9 @@ function AdminPage() {
               <Button variant="outline" size="sm" onClick={() => setEditingZones(m)}>
                 <Square className="w-4 h-4 mr-1" /> 구역 설정
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setManualFor(m)}>
+                📝 수기 기록 추가
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setConfirmClear(m)}>
                 기록 초기화
               </Button>
@@ -736,6 +770,77 @@ function AdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!manualFor} onOpenChange={(o) => !o && !manualLoading && setManualFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>📝 수기 기록 추가 · {manualFor?.name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            종이 방문확인카드에 기록된 건수를 입력하세요. 개인 식별 정보는 앱에 저장하지 않습니다.
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">조 이름</Label>
+              <Input
+                value={manualForm.team}
+                onChange={(e) => setManualForm((f) => ({ ...f, team: e.target.value }))}
+                placeholder="수기입력"
+                className="h-9"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">복음 전달 완료</Label>
+                <Input type="number" min={0} inputMode="numeric" value={manualForm.done}
+                  onChange={(e) => setManualForm((f) => ({ ...f, done: Number(e.target.value) || 0 }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">그 중 결신</Label>
+                <Input type="number" min={0} inputMode="numeric" value={manualForm.decided}
+                  onChange={(e) => setManualForm((f) => ({ ...f, decided: Number(e.target.value) || 0 }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">선물만 전달</Label>
+                <Input type="number" min={0} inputMode="numeric" value={manualForm.gift}
+                  onChange={(e) => setManualForm((f) => ({ ...f, gift: Number(e.target.value) || 0 }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">부재중</Label>
+                <Input type="number" min={0} inputMode="numeric" value={manualForm.away}
+                  onChange={(e) => setManualForm((f) => ({ ...f, away: Number(e.target.value) || 0 }))} />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label className="text-xs">기타</Label>
+                <Input type="number" min={0} inputMode="numeric" value={manualForm.other}
+                  onChange={(e) => setManualForm((f) => ({ ...f, other: Number(e.target.value) || 0 }))} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">메모 (선택)</Label>
+              <Input
+                value={manualForm.note}
+                onChange={(e) => setManualForm((f) => ({ ...f, note: e.target.value }))}
+                placeholder="예: 8/15 오후 팀 종이기록 합산"
+              />
+            </div>
+            {manualForm.decided > manualForm.done && (
+              <p className="text-xs text-destructive">결신 수는 복음 전달 완료 수 이하여야 합니다.</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setManualFor(null)} disabled={manualLoading}>취소</Button>
+            <Button
+              onClick={submitManual}
+              disabled={manualLoading || manualForm.decided > manualForm.done ||
+                (manualForm.done + manualForm.gift + manualForm.away + manualForm.other === 0)}
+            >
+              {manualLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "추가"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {editingZones && (
         <ZoneEditor

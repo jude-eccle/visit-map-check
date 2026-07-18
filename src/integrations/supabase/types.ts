@@ -295,26 +295,35 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          decided: boolean | null
           id: string
           map_id: string
+          note: string | null
+          source: string
           team_name: string
-          zone_id: string
+          zone_id: string | null
         }
         Insert: {
           category: string
           created_at?: string
+          decided?: boolean | null
           id?: string
           map_id: string
+          note?: string | null
+          source?: string
           team_name: string
-          zone_id: string
+          zone_id?: string | null
         }
         Update: {
           category?: string
           created_at?: string
+          decided?: boolean | null
           id?: string
           map_id?: string
+          note?: string | null
+          source?: string
           team_name?: string
-          zone_id?: string
+          zone_id?: string | null
         }
         Relationships: [
           {

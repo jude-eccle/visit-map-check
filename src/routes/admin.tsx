@@ -690,6 +690,53 @@ function AdminPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={resetAllOpen} onOpenChange={(o) => !o && !resetAllLoading && setResetAllOpen(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">⚠️ 전체 기록 초기화</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm">
+              정말 전체 초기화하시겠습니까? 모든 지도의 방문 기록·구역 상태·배정 내역이 삭제되며 되돌릴 수 없습니다.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              확인을 위해 아래에 <span className="font-semibold text-foreground">초기화</span> 라고 입력해주세요.
+            </p>
+            <Input
+              value={resetAllText}
+              onChange={(e) => setResetAllText(e.target.value)}
+              placeholder="초기화"
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResetAllOpen(false)} disabled={resetAllLoading}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={resetAllText.trim() !== "초기화" || resetAllLoading || !token}
+              onClick={async () => {
+                if (!token) return;
+                setResetAllLoading(true);
+                try {
+                  await adminResetAll({ data: { token, confirm: "초기화" } });
+                  toast.success("전체 초기화되었습니다");
+                  setResetAllOpen(false);
+                  setResetAllText("");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "초기화 실패");
+                } finally {
+                  setResetAllLoading(false);
+                }
+              }}
+            >
+              {resetAllLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "전체 초기화"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {editingZones && (
         <ZoneEditor
           mapId={editingZones.id}

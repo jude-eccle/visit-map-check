@@ -352,6 +352,9 @@ function AdminPage() {
     } finally {
       setManualLoading(false);
     }
+  }
+
+  function signOut() {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setEntry("");

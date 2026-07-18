@@ -567,10 +567,13 @@ function MapPage() {
         await supabase.from("zone_events").delete().eq("id", id);
       }
     };
-    toast(`+1 ${CATEGORY_META[cat].label}`, {
-      duration: 5000,
-      action: { label: "되돌리기", onClick: undo },
-    });
+    const showSaveToast = () => {
+      toast(`+1 ${CATEGORY_META[cat].label}`, {
+        duration: 5000,
+        action: { label: "되돌리기", onClick: undo },
+      });
+    };
+    if (cat !== "done") showSaveToast();
     const { data, error } = await supabase
       .from("zone_events")
       .insert({
@@ -594,18 +597,17 @@ function MapPage() {
     setEvents((p) => p.map((e) => (e.id === tempId ? (data as EventRow) : e)));
     if (cat === "done" && !undone) {
       if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
-      setDecisionPrompt({ eventId: data.id });
-      decisionTimerRef.current = setTimeout(() => setDecisionPrompt(null), 8000);
+      const eventId = data.id;
+      const finish = (value: boolean | null) => {
+        if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
+        setDecisionPrompt(null);
+        if (value !== null) {
+          void supabase.from("zone_events").update({ decided: value } as never).eq("id", eventId);
+        }
+        showSaveToast();
+      };
+      setDecisionPrompt({ eventId, finish });
     }
-  }
-
-  async function answerDecision(value: boolean | null) {
-    const p = decisionPrompt;
-    setDecisionPrompt(null);
-    if (decisionTimerRef.current) clearTimeout(decisionTimerRef.current);
-    if (!p) return;
-    if (value === null) return; // skip
-    await supabase.from("zone_events").update({ decided: value } as never).eq("id", p.eventId);
   }
 
 

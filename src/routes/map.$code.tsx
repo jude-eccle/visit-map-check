@@ -606,6 +606,9 @@ function MapPage() {
     if (!p) return;
     if (value === null) return; // skip
     await supabase.from("zone_events").update({ decided: value } as never).eq("id", p.eventId);
+  }
+
+
 
   function callLeader() {
     const digits = leaderPhone.replace(/[^\d+]/g, "");

@@ -808,6 +808,32 @@ function MapPage() {
                 );
               })}
             </div>
+            {decisionPrompt && (
+              <div className="rounded-lg border border-status-done/40 bg-status-done/10 px-3 py-2 flex items-center gap-2 text-sm">
+                <span className="font-medium flex-1">결신하셨나요?</span>
+                <button
+                  type="button"
+                  onClick={() => answerDecision(true)}
+                  className="px-2.5 py-1 rounded-md bg-status-done text-white text-xs font-semibold"
+                >
+                  예
+                </button>
+                <button
+                  type="button"
+                  onClick={() => answerDecision(false)}
+                  className="px-2.5 py-1 rounded-md border bg-card text-xs font-semibold"
+                >
+                  아니오
+                </button>
+                <button
+                  type="button"
+                  onClick={() => answerDecision(null)}
+                  className="px-2 py-1 text-xs text-muted-foreground"
+                >
+                  건너뛰기
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={() => openNoteDialog(selectedZone, "handoff")}

@@ -29,9 +29,7 @@ type PendingAssignment = {
 function Index() {
   const navigate = useNavigate();
   const [teams, setTeams] = useState<TeamName[]>([]);
-  const [teamName, setTeamName] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("teamName") ?? "" : ""
-  );
+  const [teamName, setTeamName] = useState("");
   const [entered, setEntered] = useState(false);
   const [pending, setPending] = useState<PendingAssignment | null>(null);
   const [loadingAssign, setLoadingAssign] = useState(false);
@@ -39,6 +37,11 @@ function Index() {
   const [code, setCode] = useState("");
   const [codeErr, setCodeErr] = useState<string | null>(null);
   const [codeBusy, setCodeBusy] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("teamName");
+    if (saved) setTeamName(saved);
+  }, []);
 
   useEffect(() => {
     (async () => {

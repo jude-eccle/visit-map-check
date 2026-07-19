@@ -260,6 +260,20 @@ function MapPage() {
     return m;
   }, [handoffs]);
 
+  const handoffsByZone = useMemo(() => {
+    const m = new Map<string, HandoffRow[]>();
+    for (const h of handoffs) {
+      const arr = m.get(h.zone_id) ?? [];
+      arr.push(h);
+      m.set(h.zone_id, arr);
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return m;
+  }, [handoffs]);
+
+
   // zone_id -> list of team names currently active in that zone
   const teamsInZone = useMemo(() => {
     const m = new Map<string, string[]>();

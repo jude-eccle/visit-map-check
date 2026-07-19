@@ -118,6 +118,7 @@ function MapPage() {
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const [postSaveOpen, setPostSaveOpen] = useState(false);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
+  const [handoffsModal, setHandoffsModal] = useState<{ zoneId: string; zoneName: string } | null>(null);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [decisionPrompt, setDecisionPrompt] = useState<{ eventId: string; finish: (v: boolean | null) => void } | null>(null);
   const decisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

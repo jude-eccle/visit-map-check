@@ -508,6 +508,8 @@ function LeaderDashboard() {
                     {comps.map((c) => {
                       const h = latestHandoffByZoneTeam.get(`${c.zone_id}|${c.team_name}`);
                       const thumb = h?.photo_url ? thumbUrls[h.photo_url] : null;
+                      const zName = zoneNameById.get(c.zone_id) ?? "구역";
+                      const recCount = handoffsByZone.get(c.zone_id)?.length ?? 0;
                       return (
                         <div
                           key={c.id}
@@ -526,7 +528,7 @@ function LeaderDashboard() {
                           )}
                           <div className="flex-1 min-w-0 text-sm">
                             <div className="font-medium">
-                              {zoneNameById.get(c.zone_id) ?? "구역"} · {c.team_name}
+                              {zName} · {c.team_name}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {new Date(c.created_at).toLocaleString("ko-KR", {
@@ -541,9 +543,20 @@ function LeaderDashboard() {
                               ).join(" / ")}
                             </div>
                           </div>
-                          <Button size="sm" variant="ghost" onClick={() => ackCompletion(c.id)}>
-                            확인함
-                          </Button>
+                          <div className="flex flex-col gap-1">
+                            {recCount > 0 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setHandoffsModal({ zoneId: c.zone_id, zoneName: zName })}
+                              >
+                                기록 {recCount}
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" onClick={() => ackCompletion(c.id)}>
+                              확인함
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}

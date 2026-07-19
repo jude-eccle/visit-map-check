@@ -39,6 +39,11 @@ function Index() {
   const [codeBusy, setCodeBusy] = useState(false);
 
   useEffect(() => {
+    const saved = localStorage.getItem("teamName");
+    if (saved) setTeamName(saved);
+  }, []);
+
+  useEffect(() => {
     (async () => {
       const { data } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

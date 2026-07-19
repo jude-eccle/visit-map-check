@@ -670,6 +670,58 @@ function LeaderDashboard() {
 
 
 
+      <Dialog open={!!handoffsModal} onOpenChange={(o) => !o && setHandoffsModal(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{handoffsModal?.zoneName} — 전체 기록</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+            {(handoffsModal ? handoffsByZone.get(handoffsModal.zoneId) ?? [] : []).map((h) => {
+              const thumb = h.photo_url ? thumbUrls[h.photo_url] : null;
+              return (
+                <div key={h.id} className="border rounded-lg p-2.5 flex gap-2 items-start">
+                  {thumb ? (
+                    <button type="button" onClick={() => setPhotoModal(thumb)} className="flex-shrink-0">
+                      <img src={thumb} alt="" className="w-16 h-16 object-cover rounded border" />
+                    </button>
+                  ) : (
+                    <div className="w-16 h-16 rounded border bg-muted flex items-center justify-center text-[10px] text-muted-foreground flex-shrink-0">
+                      사진 없음
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 text-sm space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{h.team_name}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                          h.kind === "complete"
+                            ? "bg-status-done/15 text-status-done"
+                            : "bg-primary/15 text-primary"
+                        }`}
+                      >
+                        {h.kind === "complete" ? "완료" : "교대 인계"}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground ml-auto">
+                        {new Date(h.created_at).toLocaleString("ko-KR", {
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    {h.note && <div className="text-xs whitespace-pre-wrap break-words">{h.note}</div>}
+                  </div>
+                </div>
+              );
+            })}
+            {handoffsModal && (handoffsByZone.get(handoffsModal.zoneId)?.length ?? 0) === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">기록이 없습니다.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!photoModal} onOpenChange={(o) => !o && setPhotoModal(null)}>
         <DialogContent className="sm:max-w-lg p-2 bg-black">
           {photoModal && (

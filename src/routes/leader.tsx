@@ -275,6 +275,19 @@ function LeaderDashboard() {
     return m;
   }, [handoffs]);
 
+  const handoffsByZone = useMemo(() => {
+    const m = new Map<string, HandoffRow[]>();
+    for (const h of handoffs) {
+      const arr = m.get(h.zone_id) ?? [];
+      arr.push(h);
+      m.set(h.zone_id, arr);
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return m;
+  }, [handoffs]);
+
   useEffect(() => {
     const missing = handoffs
       .map((h) => h.photo_url)

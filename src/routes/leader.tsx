@@ -67,6 +67,7 @@ function LeaderDashboard() {
   const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [photoModal, setPhotoModal] = useState<string | null>(null);
+  const [handoffsModal, setHandoffsModal] = useState<{ zoneId: string; zoneName: string } | null>(null);
   const [loading, setLoading] = useState(true);
   // assignFor: legacy per-completion selector picks a map for a fixed team;
   // assignMapFor: per-map selector picks a team for a fixed map.

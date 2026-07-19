@@ -797,16 +797,28 @@ function MapPage() {
                 시도 {selStats.total}
               </span>
             </div>
-            {selHandoffThumb && (
-              <button
-                type="button"
-                onClick={() => setPhotoModal(selHandoffThumb)}
-                className="flex items-center gap-2 text-xs text-muted-foreground px-1"
-              >
-                <img src={selHandoffThumb} alt="" className="w-10 h-10 object-cover rounded border" />
-                <span className="truncate">최근 사진 · {selHandoff?.kind === "complete" ? "완료" : "인계"}</span>
-              </button>
-            )}
+            {(() => {
+              const recCount = handoffsByZone.get(selectedZone.id)?.length ?? 0;
+              if (recCount === 0) return null;
+              return (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setHandoffsModal({ zoneId: selectedZone.id, zoneName: selectedZone.name })
+                  }
+                  className="flex items-center gap-2 text-xs text-muted-foreground px-1 hover:text-foreground transition"
+                >
+                  {selHandoffThumb ? (
+                    <img src={selHandoffThumb} alt="" className="w-10 h-10 object-cover rounded border" />
+                  ) : (
+                    <div className="w-10 h-10 rounded border bg-muted flex items-center justify-center text-[9px]">
+                      기록
+                    </div>
+                  )}
+                  <span className="truncate">전체 기록 보기 ({recCount})</span>
+                </button>
+              );
+            })()}
             <div className="grid grid-cols-2 gap-2">
               {CATEGORY_ORDER.map((c) => {
                 const meta = CATEGORY_META[c];

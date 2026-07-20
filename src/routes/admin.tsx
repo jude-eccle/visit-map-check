@@ -719,9 +719,109 @@ function AdminPage() {
                 <Trash2 className="w-4 h-4 mr-1" /> 지도 삭제
               </Button>
             </div>
+            {(() => {
+              const zs = zonesByMap[m.id] ?? [];
+              if (zs.length === 0) return null;
+              const acts = activityByMap[m.id] ?? [];
+              const open = !!zoneStatusOpen[m.id];
+              const activeByZone = new Map<string, string[]>();
+              const lastEndedByZone = new Map<string, ActivityRow>();
+              for (const a of acts) {
+                if (!a.ended_at) {
+                  const arr = activeByZone.get(a.zone_id) ?? [];
+                  if (!arr.includes(a.team_name)) arr.push(a.team_name);
+                  activeByZone.set(a.zone_id, arr);
+                } else {
+                  const prev = lastEndedByZone.get(a.zone_id);
+                  if (!prev || new Date(a.ended_at) > new Date(prev.ended_at!)) lastEndedByZone.set(a.zone_id, a);
+                }
+              }
+              const disp = (z: ZoneRow) => {
+                if (z.status === "done") return "done" as const;
+                if ((activeByZone.get(z.id)?.length ?? 0) > 0) return "in_progress" as const;
+                if (lastEndedByZone.has(z.id)) return "abandoned" as const;
+                return "unvisited" as const;
+              };
+              return (
+                <div className="border-t bg-background/40">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setZoneStatusOpen((prev) => ({ ...prev, [m.id]: !prev[m.id] }))
+                    }
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm"
+                  >
+                    {open ? (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                    <span className="font-semibold">구역 현황</span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {zs.length}개 · 완료 {zs.filter((z) => disp(z) === "done").length}
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="px-3 pb-3 space-y-1.5">
+                      {zs.map((z) => {
+                        const ds = disp(z);
+                        const meta = ZONE_STATUS_LABEL[ds];
+                        const teams = activeByZone.get(z.id) ?? [];
+                        const last = lastEndedByZone.get(z.id);
+                        const info =
+                          ds === "in_progress" && teams.length > 0
+                            ? `방문중: ${teams.join(", ")}`
+                            : ds === "abandoned" && last
+                              ? `마지막 ${last.team_name}`
+                              : ds === "done"
+                                ? "완료됨"
+                                : "";
+                        return (
+                          <div
+                            key={z.id}
+                            className="flex items-center gap-2 py-1.5 px-2 rounded border bg-card"
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: meta.color }}
+                            />
+                            <span className="font-semibold text-sm min-w-0 truncate">
+                              {z.name}
+                            </span>
+                            <span
+                              className="text-[11px] px-1.5 py-0.5 rounded shrink-0"
+                              style={{ backgroundColor: `${meta.color}22`, color: meta.color }}
+                            >
+                              {meta.label}
+                            </span>
+                            {info && (
+                              <span className="text-[11px] text-muted-foreground truncate">
+                                {info}
+                              </span>
+                            )}
+                            {ds !== "done" && (ds !== "unvisited" || z.status !== "unvisited") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="ml-auto h-7 px-2 text-[11px] text-destructive hover:text-destructive"
+                                onClick={() => adminResetZone(m, z)}
+                              >
+                                미방문으로 초기화
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </main>
+
+
 
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent className="sm:max-w-sm">

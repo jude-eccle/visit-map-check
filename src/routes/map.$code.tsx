@@ -109,6 +109,8 @@ function MapPage() {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
   const [confirmRevertZone, setConfirmRevertZone] = useState<ZoneRow | null>(null);
+  const [abandonedChoice, setAbandonedChoice] = useState<ZoneRow | null>(null);
+  const [confirmResetUnvisited, setConfirmResetUnvisited] = useState<ZoneRow | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [noteDialog, setNoteDialog] = useState<DialogMode>(null);
   const [noteText, setNoteText] = useState("");

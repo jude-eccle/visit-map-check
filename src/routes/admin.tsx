@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard, Square, ArrowUp, ArrowDown, Users } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard, Square, ArrowUp, ArrowDown, Users, ChevronDown, ChevronRight } from "lucide-react";
 import { getMapImageUrl } from "@/lib/map-image";
 import { ZoneEditor } from "@/components/map/ZoneEditor";
 

@@ -465,7 +465,7 @@ function LeaderDashboard() {
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => setAssignMapFor(map)}
+                  onClick={() => { setSelectedTeams(new Set()); setAssignMapFor(map); }}
                 >
                   <Send className="w-3.5 h-3.5 mr-1" /> 다음 지도 배정 ({map.name})
                 </Button>

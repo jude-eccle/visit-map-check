@@ -531,25 +531,27 @@ function AdminPage() {
                   </div>
                 ))}
               </div>
-
-          <div className="flex gap-2 pt-1">
-            <Input
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addTeamName();
-                }
-              }}
-              placeholder="새 조 이름 (예: 17조)"
-              className="h-9 text-sm"
-            />
-            <Button size="sm" onClick={addTeamName} disabled={!newTeamName.trim()}>
-              <Plus className="w-4 h-4 mr-1" /> 추가
-            </Button>
-          </div>
+              <div className="flex gap-2 pt-1">
+                <Input
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addTeamName();
+                    }
+                  }}
+                  placeholder="새 조 이름 (예: 17조)"
+                  className="h-9 text-sm"
+                />
+                <Button size="sm" onClick={addTeamName} disabled={!newTeamName.trim()}>
+                  <Plus className="w-4 h-4 mr-1" /> 추가
+                </Button>
+              </div>
+            </>
+          )}
         </div>
+
 
 
 

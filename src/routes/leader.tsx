@@ -73,6 +73,8 @@ function LeaderDashboard() {
   // assignMapFor: per-map selector picks a team for a fixed map.
   const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
   const [assignMapFor, setAssignMapFor] = useState<MapRow | null>(null);
+  const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
+  const [assigning, setAssigning] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
 
   async function downloadExcel() {
@@ -357,6 +359,27 @@ function LeaderDashboard() {
     refresh();
   }
 
+  async function assignMapMulti(teams: string[], mapId: string) {
+    if (teams.length === 0) return;
+    setAssigning(true);
+    const rows = teams.map((t) => ({ team_name: t, map_id: mapId }));
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("assignments" as any)
+      .insert(rows as never);
+    setAssigning(false);
+    if (error) {
+      toast.error("배정 실패");
+      return;
+    }
+    const mapName = mapById.get(mapId)?.name ?? "";
+    setAssignMapFor(null);
+    setSelectedTeams(new Set());
+    toast.success(`${teams.length}개 조 → ${mapName} 배정 완료`);
+    refresh();
+  }
+
+
   async function cancelAssignment(a: AssignmentRow) {
     const mapName = mapById.get(a.map_id)?.name ?? "이 지도";
     if (!confirm(`${a.team_name}의 ${mapName} 배정을 취소할까요?`)) return;
@@ -442,7 +465,7 @@ function LeaderDashboard() {
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => setAssignMapFor(map)}
+                  onClick={() => { setSelectedTeams(new Set()); setAssignMapFor(map); }}
                 >
                   <Send className="w-3.5 h-3.5 mr-1" /> 다음 지도 배정 ({map.name})
                 </Button>
@@ -643,20 +666,34 @@ function LeaderDashboard() {
               const p = pendingByTeam.get(t.name);
               const pMap = p ? mapById.get(p.map_id) : null;
               const alreadyThis = pMap && assignMapFor && pMap.id === assignMapFor.id;
+              const checked = selectedTeams.has(t.name);
               return (
-                <button
+                <label
                   key={t.id}
-                  type="button"
-                  onClick={() => assignMapFor && assignMap(t.name, assignMapFor.id)}
-                  className="w-full text-left border rounded-lg p-3 hover:bg-accent transition flex items-center justify-between gap-2"
+                  className={`w-full border rounded-lg p-3 hover:bg-accent transition flex items-center justify-between gap-2 cursor-pointer ${checked ? "bg-accent border-primary" : ""}`}
                 >
-                  <div className="font-semibold text-sm">{t.name}</div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 accent-primary"
+                      checked={checked}
+                      onChange={(e) => {
+                        setSelectedTeams((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(t.name);
+                          else next.delete(t.name);
+                          return next;
+                        });
+                      }}
+                    />
+                    <div className="font-semibold text-sm truncate">{t.name}</div>
+                  </div>
                   {pMap && (
-                    <div className={`text-[11px] ${alreadyThis ? "text-status-done" : "text-primary"}`}>
+                    <div className={`text-[11px] shrink-0 ${alreadyThis ? "text-status-done" : "text-primary"}`}>
                       {alreadyThis ? "이미 이 지도 배정됨" : `이미 ${pMap.name}에 배정됨`}
                     </div>
                   )}
-                </button>
+                </label>
               );
             })}
             {teamNames.length === 0 && (
@@ -665,6 +702,25 @@ function LeaderDashboard() {
               </p>
             )}
           </div>
+          {teamNames.length > 0 && (
+            <div className="flex items-center justify-between gap-2 pt-2 border-t">
+              <div className="text-xs text-muted-foreground">
+                {selectedTeams.size}개 조 선택됨
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setAssignMapFor(null)}>
+                  취소
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={selectedTeams.size === 0 || assigning}
+                  onClick={() => assignMapFor && assignMapMulti(Array.from(selectedTeams), assignMapFor.id)}
+                >
+                  {assigning ? "배정 중..." : `배정 (${selectedTeams.size})`}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

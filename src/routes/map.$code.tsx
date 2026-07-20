@@ -355,6 +355,11 @@ function MapPage() {
       setConfirmRevertZone(z);
       return;
     }
+    // Abandoned zone with no active team → ask user whether to resume or reset
+    if (displayStatus(z) === "abandoned" && !myActivityByZone.get(z.id)) {
+      setAbandonedChoice(z);
+      return;
+    }
     const mine = myActivityByZone.get(z.id);
     if (mine) {
       // Close my activity for this zone

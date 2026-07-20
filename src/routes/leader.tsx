@@ -73,6 +73,8 @@ function LeaderDashboard() {
   // assignMapFor: per-map selector picks a team for a fixed map.
   const [assignFor, setAssignFor] = useState<{ team: string } | null>(null);
   const [assignMapFor, setAssignMapFor] = useState<MapRow | null>(null);
+  const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
+  const [assigning, setAssigning] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
 
   async function downloadExcel() {

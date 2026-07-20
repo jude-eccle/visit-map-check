@@ -313,10 +313,6 @@ function LeaderDashboard() {
     await supabase.from("support_requests").update({ resolved: true }).eq("id", id);
     refresh();
   }
-  async function ackCompletion(id: string) {
-    await supabase.from("zone_completions").update({ acknowledged: true }).eq("id", id);
-    refresh();
-  }
 
   const mapById = useMemo(() => {
     const m = new Map<string, MapRow>();

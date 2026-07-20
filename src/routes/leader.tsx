@@ -666,20 +666,34 @@ function LeaderDashboard() {
               const p = pendingByTeam.get(t.name);
               const pMap = p ? mapById.get(p.map_id) : null;
               const alreadyThis = pMap && assignMapFor && pMap.id === assignMapFor.id;
+              const checked = selectedTeams.has(t.name);
               return (
-                <button
+                <label
                   key={t.id}
-                  type="button"
-                  onClick={() => assignMapFor && assignMap(t.name, assignMapFor.id)}
-                  className="w-full text-left border rounded-lg p-3 hover:bg-accent transition flex items-center justify-between gap-2"
+                  className={`w-full border rounded-lg p-3 hover:bg-accent transition flex items-center justify-between gap-2 cursor-pointer ${checked ? "bg-accent border-primary" : ""}`}
                 >
-                  <div className="font-semibold text-sm">{t.name}</div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 accent-primary"
+                      checked={checked}
+                      onChange={(e) => {
+                        setSelectedTeams((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(t.name);
+                          else next.delete(t.name);
+                          return next;
+                        });
+                      }}
+                    />
+                    <div className="font-semibold text-sm truncate">{t.name}</div>
+                  </div>
                   {pMap && (
-                    <div className={`text-[11px] ${alreadyThis ? "text-status-done" : "text-primary"}`}>
+                    <div className={`text-[11px] shrink-0 ${alreadyThis ? "text-status-done" : "text-primary"}`}>
                       {alreadyThis ? "이미 이 지도 배정됨" : `이미 ${pMap.name}에 배정됨`}
                     </div>
                   )}
-                </button>
+                </label>
               );
             })}
             {teamNames.length === 0 && (
@@ -688,6 +702,25 @@ function LeaderDashboard() {
               </p>
             )}
           </div>
+          {teamNames.length > 0 && (
+            <div className="flex items-center justify-between gap-2 pt-2 border-t">
+              <div className="text-xs text-muted-foreground">
+                {selectedTeams.size}개 조 선택됨
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setAssignMapFor(null)}>
+                  취소
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={selectedTeams.size === 0 || assigning}
+                  onClick={() => assignMapFor && assignMapMulti(Array.from(selectedTeams), assignMapFor.id)}
+                >
+                  {assigning ? "배정 중..." : `배정 (${selectedTeams.size})`}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

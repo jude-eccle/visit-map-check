@@ -168,8 +168,8 @@ function LeaderDashboard() {
         supabase
           .from("zone_completions")
           .select("*")
-          .eq("acknowledged", false)
           .order("created_at", { ascending: false }),
+
         supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .from("assignments" as any)

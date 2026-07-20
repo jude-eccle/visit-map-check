@@ -362,20 +362,28 @@ function MapPage() {
     }
     const mine = myActivityByZone.get(z.id);
     if (mine) {
-      // Close my activity for this zone
+      // Cancel-only: allow undoing the tap only if this team has no counter records for this zone
+      const hasRecords = events.some(
+        (e) => e.zone_id === z.id && e.team_name === teamName
+      );
+      if (hasRecords) {
+        toast("이미 방문 기록이 있습니다. '교대 인계' 또는 '이 구역 완료' 버튼을 이용해주세요");
+        return;
+      }
+      // Delete my activity row entirely so the zone reverts to its prior status (unvisited or abandoned)
       setActivity((p) => p.filter((x) => x.id !== mine.id));
       if (selectedZoneId === z.id) setSelectedZoneId(null);
       const { error } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from("zone_activity" as any)
-        .update({ ended_at: new Date().toISOString() } as never)
+        .delete()
         .eq("id", mine.id);
       if (error) {
         toast.error("상태 변경 실패");
         setActivity((p) => [...p, mine]);
         return;
       }
-      toast(`${z.name} 방문 종료`);
+      toast(`${z.name} 방문 취소`);
     } else {
       // Start my activity for this zone
       const tempId = `tmp-${Date.now()}`;

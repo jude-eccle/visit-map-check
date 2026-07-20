@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard, Square, ArrowUp, ArrowDown, Users } from "lucide-react";
+import { Loader2, Plus, Trash2, Upload, Image as ImageIcon, ShieldCheck, LayoutDashboard, Square, ArrowUp, ArrowDown, Users, ChevronDown, ChevronRight } from "lucide-react";
 import { getMapImageUrl } from "@/lib/map-image";
 import { ZoneEditor } from "@/components/map/ZoneEditor";
 
@@ -72,6 +72,7 @@ function AdminPage() {
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
   const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);
+  const [teamNamesOpen, setTeamNamesOpen] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
   const [manualFor, setManualFor] = useState<MapRow | null>(null);
   const [manualForm, setManualForm] = useState({ team: "수기입력", done: 0, decided: 0, gift: 0, away: 0, other: 0, note: "" });
@@ -470,68 +471,88 @@ function AdminPage() {
         </div>
 
         <div className="bg-card border rounded-xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTeamNamesOpen((v) => !v)}
+            className="w-full flex items-center gap-2 text-left"
+            aria-expanded={teamNamesOpen}
+          >
+            {teamNamesOpen ? (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            )}
             <Users className="w-4 h-4 text-primary" />
-            <Label className="text-sm font-semibold">조 이름 목록 (팀원 로그인 드롭다운)</Label>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            여기 등록된 조 이름이 메인 화면의 드롭다운과 팀장 배정 팝업에 나타납니다.
-          </p>
-          <div className="space-y-1.5">
-            {teamNames.map((t, idx) => (
-              <div key={t.id} className="flex items-center gap-1.5">
+            <Label className="text-sm font-semibold cursor-pointer">
+              조 이름 목록 (팀원 로그인 드롭다운)
+            </Label>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {teamNames.length}개 등록됨
+            </span>
+          </button>
+          {teamNamesOpen && (
+            <>
+              <p className="text-xs text-muted-foreground">
+                여기 등록된 조 이름이 메인 화면의 드롭다운과 팀장 배정 팝업에 나타납니다.
+              </p>
+              <div className="space-y-1.5">
+                {teamNames.map((t, idx) => (
+                  <div key={t.id} className="flex items-center gap-1.5">
+                    <Input
+                      defaultValue={t.name}
+                      onBlur={(e) => renameTeamName(t, e.target.value)}
+                      className="h-9 text-sm flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                      disabled={idx === 0}
+                      onClick={() => moveTeamName(idx, -1)}
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                      disabled={idx === teamNames.length - 1}
+                      onClick={() => moveTeamName(idx, 1)}
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-destructive hover:text-destructive"
+                      onClick={() => deleteTeamName(t.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-1">
                 <Input
-                  defaultValue={t.name}
-                  onBlur={(e) => renameTeamName(t, e.target.value)}
-                  className="h-9 text-sm flex-1"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addTeamName();
+                    }
+                  }}
+                  placeholder="새 조 이름 (예: 17조)"
+                  className="h-9 text-sm"
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9"
-                  disabled={idx === 0}
-                  onClick={() => moveTeamName(idx, -1)}
-                >
-                  <ArrowUp className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9"
-                  disabled={idx === teamNames.length - 1}
-                  onClick={() => moveTeamName(idx, 1)}
-                >
-                  <ArrowDown className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 text-destructive hover:text-destructive"
-                  onClick={() => deleteTeamName(t.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
+                <Button size="sm" onClick={addTeamName} disabled={!newTeamName.trim()}>
+                  <Plus className="w-4 h-4 mr-1" /> 추가
                 </Button>
               </div>
-            ))}
-          </div>
-          <div className="flex gap-2 pt-1">
-            <Input
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addTeamName();
-                }
-              }}
-              placeholder="새 조 이름 (예: 17조)"
-              className="h-9 text-sm"
-            />
-            <Button size="sm" onClick={addTeamName} disabled={!newTeamName.trim()}>
-              <Plus className="w-4 h-4 mr-1" /> 추가
-            </Button>
-          </div>
+            </>
+          )}
         </div>
+
 
 
 

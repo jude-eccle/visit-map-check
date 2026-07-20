@@ -33,6 +33,15 @@ import { getMapImageUrl } from "@/lib/map-image";
 import { ZoneEditor } from "@/components/map/ZoneEditor";
 
 type TeamNameRow = { id: string; name: string; order_idx: number };
+type ZoneRow = { id: string; map_id: string; name: string; status: "unvisited" | "in_progress" | "abandoned" | "done"; order_idx: number };
+type ActivityRow = { id: string; zone_id: string; map_id: string; team_name: string; started_at: string; ended_at: string | null };
+
+const ZONE_STATUS_LABEL: Record<ZoneRow["status"], { label: string; color: string }> = {
+  unvisited: { label: "미방문", color: "#94A3B8" },
+  in_progress: { label: "방문중", color: "#E29B3E" },
+  abandoned: { label: "미완료·중단됨", color: "#C0392B" },
+  done: { label: "완료", color: "#2F8F5B" },
+};
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -77,6 +86,9 @@ function AdminPage() {
   const [manualFor, setManualFor] = useState<MapRow | null>(null);
   const [manualForm, setManualForm] = useState({ team: "수기입력", done: 0, decided: 0, gift: 0, away: 0, other: 0, note: "" });
   const [manualLoading, setManualLoading] = useState(false);
+  const [zonesByMap, setZonesByMap] = useState<Record<string, ZoneRow[]>>({});
+  const [activityByMap, setActivityByMap] = useState<Record<string, ActivityRow[]>>({});
+  const [zoneStatusOpen, setZoneStatusOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     (async () => {
@@ -131,6 +143,63 @@ function AdminPage() {
       .select("id, name, order_idx")
       .order("order_idx");
     setTeamNames(((tn ?? []) as unknown) as TeamNameRow[]);
+    // Load zones + activity for all maps
+    const mapIds = list.map((m) => m.id);
+    if (mapIds.length > 0) {
+      const [{ data: zs }, { data: acts }] = await Promise.all([
+        supabase.from("zones").select("id, map_id, name, status, order_idx").in("map_id", mapIds).order("order_idx"),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("zone_activity" as any).select("*").in("map_id", mapIds)) as unknown as Promise<{ data: ActivityRow[] | null }>,
+      ]);
+      const zg: Record<string, ZoneRow[]> = {};
+      for (const z of (zs ?? []) as ZoneRow[]) (zg[z.map_id] ??= []).push(z);
+      setZonesByMap(zg);
+      const ag: Record<string, ActivityRow[]> = {};
+      for (const a of (acts ?? []) as ActivityRow[]) (ag[a.map_id] ??= []).push(a);
+      setActivityByMap(ag);
+    } else {
+      setZonesByMap({});
+      setActivityByMap({});
+    }
+  }
+
+  async function adminResetZone(m: MapRow, z: ZoneRow) {
+    const prevActs = activityByMap[m.id]?.filter((a) => a.zone_id === z.id) ?? [];
+    const prevStatus = z.status;
+    setActivityByMap((prev) => ({
+      ...prev,
+      [m.id]: (prev[m.id] ?? []).filter((a) => a.zone_id !== z.id),
+    }));
+    setZonesByMap((prev) => ({
+      ...prev,
+      [m.id]: (prev[m.id] ?? []).map((x) => (x.id === z.id ? { ...x, status: "unvisited" } : x)),
+    }));
+    const { error: delErr } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("zone_activity" as any)
+      .delete()
+      .eq("zone_id", z.id);
+    if (delErr) {
+      toast.error("초기화 실패");
+      setActivityByMap((prev) => ({ ...prev, [m.id]: [...(prev[m.id] ?? []), ...prevActs] }));
+      setZonesByMap((prev) => ({
+        ...prev,
+        [m.id]: (prev[m.id] ?? []).map((x) => (x.id === z.id ? { ...x, status: prevStatus } : x)),
+      }));
+      return;
+    }
+    if (prevStatus !== "unvisited") {
+      const { error: upErr } = await supabase.from("zones").update({ status: "unvisited" }).eq("id", z.id);
+      if (upErr) {
+        toast.error("초기화 실패");
+        setZonesByMap((prev) => ({
+          ...prev,
+          [m.id]: (prev[m.id] ?? []).map((x) => (x.id === z.id ? { ...x, status: prevStatus } : x)),
+        }));
+        return;
+      }
+    }
+    toast.success(`${z.name} 미방문 상태로 초기화됨`);
   }
 
   async function addTeamName() {
@@ -650,9 +719,109 @@ function AdminPage() {
                 <Trash2 className="w-4 h-4 mr-1" /> 지도 삭제
               </Button>
             </div>
+            {(() => {
+              const zs = zonesByMap[m.id] ?? [];
+              if (zs.length === 0) return null;
+              const acts = activityByMap[m.id] ?? [];
+              const open = !!zoneStatusOpen[m.id];
+              const activeByZone = new Map<string, string[]>();
+              const lastEndedByZone = new Map<string, ActivityRow>();
+              for (const a of acts) {
+                if (!a.ended_at) {
+                  const arr = activeByZone.get(a.zone_id) ?? [];
+                  if (!arr.includes(a.team_name)) arr.push(a.team_name);
+                  activeByZone.set(a.zone_id, arr);
+                } else {
+                  const prev = lastEndedByZone.get(a.zone_id);
+                  if (!prev || new Date(a.ended_at) > new Date(prev.ended_at!)) lastEndedByZone.set(a.zone_id, a);
+                }
+              }
+              const disp = (z: ZoneRow) => {
+                if (z.status === "done") return "done" as const;
+                if ((activeByZone.get(z.id)?.length ?? 0) > 0) return "in_progress" as const;
+                if (lastEndedByZone.has(z.id)) return "abandoned" as const;
+                return "unvisited" as const;
+              };
+              return (
+                <div className="border-t bg-background/40">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setZoneStatusOpen((prev) => ({ ...prev, [m.id]: !prev[m.id] }))
+                    }
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm"
+                  >
+                    {open ? (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                    <span className="font-semibold">구역 현황</span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {zs.length}개 · 완료 {zs.filter((z) => disp(z) === "done").length}
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="px-3 pb-3 space-y-1.5">
+                      {zs.map((z) => {
+                        const ds = disp(z);
+                        const meta = ZONE_STATUS_LABEL[ds];
+                        const teams = activeByZone.get(z.id) ?? [];
+                        const last = lastEndedByZone.get(z.id);
+                        const info =
+                          ds === "in_progress" && teams.length > 0
+                            ? `방문중: ${teams.join(", ")}`
+                            : ds === "abandoned" && last
+                              ? `마지막 ${last.team_name}`
+                              : ds === "done"
+                                ? "완료됨"
+                                : "";
+                        return (
+                          <div
+                            key={z.id}
+                            className="flex items-center gap-2 py-1.5 px-2 rounded border bg-card"
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: meta.color }}
+                            />
+                            <span className="font-semibold text-sm min-w-0 truncate">
+                              {z.name}
+                            </span>
+                            <span
+                              className="text-[11px] px-1.5 py-0.5 rounded shrink-0"
+                              style={{ backgroundColor: `${meta.color}22`, color: meta.color }}
+                            >
+                              {meta.label}
+                            </span>
+                            {info && (
+                              <span className="text-[11px] text-muted-foreground truncate">
+                                {info}
+                              </span>
+                            )}
+                            {ds !== "done" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="ml-auto h-7 px-2 text-[11px] text-destructive hover:text-destructive"
+                                onClick={() => adminResetZone(m, z)}
+                              >
+                                미방문으로 초기화
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </main>
+
+
 
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent className="sm:max-w-sm">

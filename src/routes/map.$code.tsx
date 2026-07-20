@@ -109,6 +109,8 @@ function MapPage() {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
   const [confirmRevertZone, setConfirmRevertZone] = useState<ZoneRow | null>(null);
+  const [abandonedChoice, setAbandonedChoice] = useState<ZoneRow | null>(null);
+  const [confirmResetUnvisited, setConfirmResetUnvisited] = useState<ZoneRow | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [noteDialog, setNoteDialog] = useState<DialogMode>(null);
   const [noteText, setNoteText] = useState("");
@@ -353,6 +355,11 @@ function MapPage() {
       setConfirmRevertZone(z);
       return;
     }
+    // Abandoned zone with no active team → ask user whether to resume or reset
+    if (displayStatus(z) === "abandoned" && !myActivityByZone.get(z.id)) {
+      setAbandonedChoice(z);
+      return;
+    }
     const mine = myActivityByZone.get(z.id);
     if (mine) {
       // Close my activity for this zone
@@ -554,6 +561,40 @@ function MapPage() {
       setSelectedZoneId(z.id);
     }
     await supabase.from("zone_completions").delete().eq("zone_id", z.id).eq("team_name", teamName);
+  }
+
+  async function resetZoneToUnvisited(z: ZoneRow) {
+    setConfirmResetUnvisited(null);
+    setAbandonedChoice(null);
+    const prevActivity = activity.filter((a) => a.zone_id === z.id);
+    const prevStatus = z.status;
+    // Optimistic
+    setActivity((p) => p.filter((a) => a.zone_id !== z.id));
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "unvisited" } : x)));
+    if (selectedZoneId === z.id) setSelectedZoneId(null);
+    const { error: delErr } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("zone_activity" as any)
+      .delete()
+      .eq("zone_id", z.id);
+    if (delErr) {
+      toast.error("초기화 실패");
+      setActivity((p) => [...p, ...prevActivity]);
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: prevStatus } : x)));
+      return;
+    }
+    if (prevStatus !== "unvisited") {
+      const { error: upErr } = await supabase
+        .from("zones")
+        .update({ status: "unvisited" })
+        .eq("id", z.id);
+      if (upErr) {
+        toast.error("초기화 실패");
+        setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: prevStatus } : x)));
+        return;
+      }
+    }
+    toast.success(`${z.name} 미방문 상태로 초기화됨`);
   }
 
   async function addEvent(cat: Category) {
@@ -926,6 +967,92 @@ function MapPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!abandonedChoice} onOpenChange={(o) => !o && setAbandonedChoice(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>"{abandonedChoice?.name}" 구역을 어떻게 할까요?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            이 구역은 이전에 방문했지만 완료되지 않은 상태입니다.
+          </p>
+          <div className="grid gap-2 pt-1">
+            <Button
+              className="h-12 text-base font-semibold"
+              style={{ backgroundColor: ZONE_STATUS_META.in_progress.color, color: "white" }}
+              onClick={async () => {
+                const z = abandonedChoice;
+                setAbandonedChoice(null);
+                if (!z) return;
+                const tempId = `tmp-${Date.now()}`;
+                const optimistic: ActivityRow = {
+                  id: tempId,
+                  zone_id: z.id,
+                  map_id: z.map_id,
+                  team_name: teamName,
+                  started_at: new Date().toISOString(),
+                  ended_at: null,
+                };
+                setActivity((p) => [...p, optimistic]);
+                setSelectedZoneId(z.id);
+                const { data, error } = await supabase
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  .from("zone_activity" as any)
+                  .insert({ zone_id: z.id, map_id: z.map_id, team_name: teamName } as never)
+                  .select("*")
+                  .single();
+                if (error || !data) {
+                  toast.error("상태 변경 실패");
+                  setActivity((p) => p.filter((x) => x.id !== tempId));
+                  return;
+                }
+                setActivity((p) => p.map((x) => (x.id === tempId ? ((data as unknown) as ActivityRow) : x)));
+                toast(`${z.name} 방문중`);
+              }}
+            >
+              이어서 방문중으로
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12 text-base font-semibold"
+              onClick={() => {
+                if (abandonedChoice) setConfirmResetUnvisited(abandonedChoice);
+              }}
+            >
+              미방문으로 초기화
+            </Button>
+            <Button variant="ghost" onClick={() => setAbandonedChoice(null)}>
+              취소
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmResetUnvisited} onOpenChange={(o) => !o && setConfirmResetUnvisited(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>미방문 상태로 되돌릴까요?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            "{confirmResetUnvisited?.name}" 구역을 미방문 상태로 되돌릴까요?
+            <br />
+            (실수로 누른 경우에만 사용하세요. 완료·인계 기록과 카운터는 그대로 유지됩니다.)
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmResetUnvisited(null)}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmResetUnvisited && resetZoneToUnvisited(confirmResetUnvisited)}
+            >
+              미방문으로 초기화
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
       <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         <DialogContent className="sm:max-w-sm">

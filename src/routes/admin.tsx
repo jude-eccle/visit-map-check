@@ -33,6 +33,15 @@ import { getMapImageUrl } from "@/lib/map-image";
 import { ZoneEditor } from "@/components/map/ZoneEditor";
 
 type TeamNameRow = { id: string; name: string; order_idx: number };
+type ZoneRow = { id: string; map_id: string; name: string; status: "unvisited" | "in_progress" | "abandoned" | "done"; order_idx: number };
+type ActivityRow = { id: string; zone_id: string; map_id: string; team_name: string; started_at: string; ended_at: string | null };
+
+const ZONE_STATUS_LABEL: Record<ZoneRow["status"], { label: string; color: string }> = {
+  unvisited: { label: "미방문", color: "#94A3B8" },
+  in_progress: { label: "방문중", color: "#E29B3E" },
+  abandoned: { label: "미완료·중단됨", color: "#C0392B" },
+  done: { label: "완료", color: "#2F8F5B" },
+};
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,

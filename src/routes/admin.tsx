@@ -72,6 +72,7 @@ function AdminPage() {
   const [editingZones, setEditingZones] = useState<MapRow | null>(null);
   const [leaderPhone, setLeaderPhone] = useState("");
   const [teamNames, setTeamNames] = useState<TeamNameRow[]>([]);
+  const [teamNamesOpen, setTeamNamesOpen] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
   const [manualFor, setManualFor] = useState<MapRow | null>(null);
   const [manualForm, setManualForm] = useState({ team: "수기입력", done: 0, decided: 0, gift: 0, away: 0, other: 0, note: "" });

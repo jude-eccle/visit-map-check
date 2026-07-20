@@ -168,8 +168,8 @@ function LeaderDashboard() {
         supabase
           .from("zone_completions")
           .select("*")
-          .eq("acknowledged", false)
           .order("created_at", { ascending: false }),
+
         supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .from("assignments" as any)
@@ -311,10 +311,6 @@ function LeaderDashboard() {
 
   async function resolveSupport(id: string) {
     await supabase.from("support_requests").update({ resolved: true }).eq("id", id);
-    refresh();
-  }
-  async function ackCompletion(id: string) {
-    await supabase.from("zone_completions").update({ acknowledged: true }).eq("id", id);
     refresh();
   }
 
@@ -576,9 +572,6 @@ function LeaderDashboard() {
                                 기록 {recCount}
                               </Button>
                             )}
-                            <Button size="sm" variant="ghost" onClick={() => ackCompletion(c.id)}>
-                              확인함
-                            </Button>
                           </div>
                         </div>
                       );

@@ -576,9 +576,6 @@ function LeaderDashboard() {
                                 기록 {recCount}
                               </Button>
                             )}
-                            <Button size="sm" variant="ghost" onClick={() => ackCompletion(c.id)}>
-                              확인함
-                            </Button>
                           </div>
                         </div>
                       );

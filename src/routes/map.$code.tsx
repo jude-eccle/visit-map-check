@@ -968,6 +968,68 @@ function MapPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!abandonedChoice} onOpenChange={(o) => !o && setAbandonedChoice(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>"{abandonedChoice?.name}" 구역을 어떻게 할까요?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            이 구역은 이전에 방문했지만 완료되지 않은 상태입니다.
+          </p>
+          <div className="grid gap-2 pt-1">
+            <Button
+              className="h-12 text-base font-semibold"
+              style={{ backgroundColor: ZONE_STATUS_META.in_progress.color, color: "white" }}
+              onClick={() => {
+                const z = abandonedChoice;
+                setAbandonedChoice(null);
+                if (z) cycleZone({ ...z, status: "unvisited" });
+              }}
+            >
+              이어서 방문중으로
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12 text-base font-semibold"
+              onClick={() => {
+                if (abandonedChoice) setConfirmResetUnvisited(abandonedChoice);
+              }}
+            >
+              미방문으로 초기화
+            </Button>
+            <Button variant="ghost" onClick={() => setAbandonedChoice(null)}>
+              취소
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmResetUnvisited} onOpenChange={(o) => !o && setConfirmResetUnvisited(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>미방문 상태로 되돌릴까요?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            "{confirmResetUnvisited?.name}" 구역을 미방문 상태로 되돌릴까요?
+            <br />
+            (실수로 누른 경우에만 사용하세요. 완료·인계 기록과 카운터는 그대로 유지됩니다.)
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmResetUnvisited(null)}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmResetUnvisited && resetZoneToUnvisited(confirmResetUnvisited)}
+            >
+              미방문으로 초기화
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
+
       <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

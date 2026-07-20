@@ -799,7 +799,7 @@ function AdminPage() {
                                 {info}
                               </span>
                             )}
-                            {ds !== "done" && (ds !== "unvisited" || z.status !== "unvisited") && (
+                            {ds !== "done" && (
                               <Button
                                 variant="ghost"
                                 size="sm"

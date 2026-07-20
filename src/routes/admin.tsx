@@ -143,6 +143,63 @@ function AdminPage() {
       .select("id, name, order_idx")
       .order("order_idx");
     setTeamNames(((tn ?? []) as unknown) as TeamNameRow[]);
+    // Load zones + activity for all maps
+    const mapIds = list.map((m) => m.id);
+    if (mapIds.length > 0) {
+      const [{ data: zs }, { data: acts }] = await Promise.all([
+        supabase.from("zones").select("id, map_id, name, status, order_idx").in("map_id", mapIds).order("order_idx"),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("zone_activity" as any).select("*").in("map_id", mapIds)) as unknown as Promise<{ data: ActivityRow[] | null }>,
+      ]);
+      const zg: Record<string, ZoneRow[]> = {};
+      for (const z of (zs ?? []) as ZoneRow[]) (zg[z.map_id] ??= []).push(z);
+      setZonesByMap(zg);
+      const ag: Record<string, ActivityRow[]> = {};
+      for (const a of (acts ?? []) as ActivityRow[]) (ag[a.map_id] ??= []).push(a);
+      setActivityByMap(ag);
+    } else {
+      setZonesByMap({});
+      setActivityByMap({});
+    }
+  }
+
+  async function adminResetZone(m: MapRow, z: ZoneRow) {
+    const prevActs = activityByMap[m.id]?.filter((a) => a.zone_id === z.id) ?? [];
+    const prevStatus = z.status;
+    setActivityByMap((prev) => ({
+      ...prev,
+      [m.id]: (prev[m.id] ?? []).filter((a) => a.zone_id !== z.id),
+    }));
+    setZonesByMap((prev) => ({
+      ...prev,
+      [m.id]: (prev[m.id] ?? []).map((x) => (x.id === z.id ? { ...x, status: "unvisited" } : x)),
+    }));
+    const { error: delErr } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("zone_activity" as any)
+      .delete()
+      .eq("zone_id", z.id);
+    if (delErr) {
+      toast.error("초기화 실패");
+      setActivityByMap((prev) => ({ ...prev, [m.id]: [...(prev[m.id] ?? []), ...prevActs] }));
+      setZonesByMap((prev) => ({
+        ...prev,
+        [m.id]: (prev[m.id] ?? []).map((x) => (x.id === z.id ? { ...x, status: prevStatus } : x)),
+      }));
+      return;
+    }
+    if (prevStatus !== "unvisited") {
+      const { error: upErr } = await supabase.from("zones").update({ status: "unvisited" }).eq("id", z.id);
+      if (upErr) {
+        toast.error("초기화 실패");
+        setZonesByMap((prev) => ({
+          ...prev,
+          [m.id]: (prev[m.id] ?? []).map((x) => (x.id === z.id ? { ...x, status: prevStatus } : x)),
+        }));
+        return;
+      }
+    }
+    toast.success(`${z.name} 미방문 상태로 초기화됨`);
   }
 
   async function addTeamName() {

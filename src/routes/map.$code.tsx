@@ -563,6 +563,40 @@ function MapPage() {
     await supabase.from("zone_completions").delete().eq("zone_id", z.id).eq("team_name", teamName);
   }
 
+  async function resetZoneToUnvisited(z: ZoneRow) {
+    setConfirmResetUnvisited(null);
+    setAbandonedChoice(null);
+    const prevActivity = activity.filter((a) => a.zone_id === z.id);
+    const prevStatus = z.status;
+    // Optimistic
+    setActivity((p) => p.filter((a) => a.zone_id !== z.id));
+    setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: "unvisited" } : x)));
+    if (selectedZoneId === z.id) setSelectedZoneId(null);
+    const { error: delErr } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("zone_activity" as any)
+      .delete()
+      .eq("zone_id", z.id);
+    if (delErr) {
+      toast.error("초기화 실패");
+      setActivity((p) => [...p, ...prevActivity]);
+      setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: prevStatus } : x)));
+      return;
+    }
+    if (prevStatus !== "unvisited") {
+      const { error: upErr } = await supabase
+        .from("zones")
+        .update({ status: "unvisited" })
+        .eq("id", z.id);
+      if (upErr) {
+        toast.error("초기화 실패");
+        setZones((p) => p.map((x) => (x.id === z.id ? { ...x, status: prevStatus } : x)));
+        return;
+      }
+    }
+    toast.success(`${z.name} 미방문 상태로 초기화됨`);
+  }
+
   async function addEvent(cat: Category) {
     if (!selectedZone || !map) return;
     const tempId = `tmp-${Date.now()}-${Math.random()}`;

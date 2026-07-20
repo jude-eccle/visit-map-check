@@ -980,10 +980,34 @@ function MapPage() {
             <Button
               className="h-12 text-base font-semibold"
               style={{ backgroundColor: ZONE_STATUS_META.in_progress.color, color: "white" }}
-              onClick={() => {
+              onClick={async () => {
                 const z = abandonedChoice;
                 setAbandonedChoice(null);
-                if (z) cycleZone({ ...z, status: "unvisited" });
+                if (!z) return;
+                const tempId = `tmp-${Date.now()}`;
+                const optimistic: ActivityRow = {
+                  id: tempId,
+                  zone_id: z.id,
+                  map_id: z.map_id,
+                  team_name: teamName,
+                  started_at: new Date().toISOString(),
+                  ended_at: null,
+                };
+                setActivity((p) => [...p, optimistic]);
+                setSelectedZoneId(z.id);
+                const { data, error } = await supabase
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  .from("zone_activity" as any)
+                  .insert({ zone_id: z.id, map_id: z.map_id, team_name: teamName } as never)
+                  .select("*")
+                  .single();
+                if (error || !data) {
+                  toast.error("상태 변경 실패");
+                  setActivity((p) => p.filter((x) => x.id !== tempId));
+                  return;
+                }
+                setActivity((p) => p.map((x) => (x.id === tempId ? ((data as unknown) as ActivityRow) : x)));
+                toast(`${z.name} 방문중`);
               }}
             >
               이어서 방문중으로

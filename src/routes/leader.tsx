@@ -359,6 +359,27 @@ function LeaderDashboard() {
     refresh();
   }
 
+  async function assignMapMulti(teams: string[], mapId: string) {
+    if (teams.length === 0) return;
+    setAssigning(true);
+    const rows = teams.map((t) => ({ team_name: t, map_id: mapId }));
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("assignments" as any)
+      .insert(rows as never);
+    setAssigning(false);
+    if (error) {
+      toast.error("배정 실패");
+      return;
+    }
+    const mapName = mapById.get(mapId)?.name ?? "";
+    setAssignMapFor(null);
+    setSelectedTeams(new Set());
+    toast.success(`${teams.length}개 조 → ${mapName} 배정 완료`);
+    refresh();
+  }
+
+
   async function cancelAssignment(a: AssignmentRow) {
     const mapName = mapById.get(a.map_id)?.name ?? "이 지도";
     if (!confirm(`${a.team_name}의 ${mapName} 배정을 취소할까요?`)) return;
